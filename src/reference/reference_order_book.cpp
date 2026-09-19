@@ -14,7 +14,7 @@ bool ReferenceOrderBook::add_order(Order order) {
         return false;
     }
 
-    if (order.status() == OrderStatus::New) {
+    if (order.status() == OrderStatus::New || order.status() == OrderStatus::PartiallyFilled) {
         if (!order.mark_resting()) {
             return false;
         }

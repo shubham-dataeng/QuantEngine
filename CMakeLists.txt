@@ -39,6 +39,7 @@ add_library(quantengine_core
     src/core/trade.cpp
     src/core/order.cpp
     src/reference/reference_order_book.cpp
+    src/engine/matching_engine.cpp
 )
 
 target_compile_features(quantengine_core PUBLIC cxx_std_20)
