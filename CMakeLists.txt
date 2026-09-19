@@ -40,6 +40,9 @@ add_library(quantengine_core
     src/core/order.cpp
     src/reference/reference_order_book.cpp
     src/engine/matching_engine.cpp
+    src/engine/canonical_state.cpp
+    src/engine/invariants.cpp
+    src/engine/replay.cpp
 )
 
 target_compile_features(quantengine_core PUBLIC cxx_std_20)

@@ -108,21 +108,19 @@ ExecutionReport MatchingEngine::handle_create(SeqNum seq, const CreateOrderComma
             const Quantity match_qty =
                 std::min(incoming.remaining_quantity(), maker->remaining_quantity());
             const PriceTicks match_price = maker->price();
+            const OrderId maker_id = maker->order_id();
+            const Side maker_side = maker->side();
 
-            [[maybe_unused]] const bool mf = maker->apply_fill(match_qty);
             [[maybe_unused]] const bool tf = incoming.apply_fill(match_qty);
+            book_.fill_best_ask_order(match_qty);
 
             trades.push_back(Trade{.trade_id = next_trade_id_++,
-                                   .maker_order_id = maker->order_id(),
+                                   .maker_order_id = maker_id,
                                    .taker_order_id = incoming.order_id(),
-                                   .maker_side = maker->side(),
+                                   .maker_side = maker_side,
                                    .price = match_price,
                                    .quantity = match_qty,
                                    .sequence_number = seq});
-
-            if (maker->remaining_quantity() == 0) {
-                book_.pop_best_ask_order();
-            }
         }
     } else {
         while (incoming.remaining_quantity() > 0) {
@@ -135,21 +133,19 @@ ExecutionReport MatchingEngine::handle_create(SeqNum seq, const CreateOrderComma
             const Quantity match_qty =
                 std::min(incoming.remaining_quantity(), maker->remaining_quantity());
             const PriceTicks match_price = maker->price();
+            const OrderId maker_id = maker->order_id();
+            const Side maker_side = maker->side();
 
-            [[maybe_unused]] const bool mf = maker->apply_fill(match_qty);
             [[maybe_unused]] const bool tf = incoming.apply_fill(match_qty);
+            book_.fill_best_bid_order(match_qty);
 
             trades.push_back(Trade{.trade_id = next_trade_id_++,
-                                   .maker_order_id = maker->order_id(),
+                                   .maker_order_id = maker_id,
                                    .taker_order_id = incoming.order_id(),
-                                   .maker_side = maker->side(),
+                                   .maker_side = maker_side,
                                    .price = match_price,
                                    .quantity = match_qty,
                                    .sequence_number = seq});
-
-            if (maker->remaining_quantity() == 0) {
-                book_.pop_best_bid_order();
-            }
         }
     }
 

@@ -48,9 +48,11 @@ public:
     [[nodiscard]] std::optional<core::Quantity> best_bid_quantity() const noexcept;
     [[nodiscard]] std::optional<core::Quantity> best_ask_quantity() const noexcept;
 
-    // Matching Engine Accessors (peek and pop at top of book)
+    // Matching Engine Accessors & Mutators
     [[nodiscard]] core::Order* get_best_bid_order() noexcept;
     [[nodiscard]] core::Order* get_best_ask_order() noexcept;
+    void fill_best_bid_order(core::Quantity fill_qty) noexcept;
+    void fill_best_ask_order(core::Quantity fill_qty) noexcept;
     void pop_best_bid_order() noexcept;
     void pop_best_ask_order() noexcept;
 
@@ -75,13 +77,8 @@ private:
         std::list<core::Order>::iterator iterator;
     };
 
-    // Price -> FIFO Queue
-    // Bids sorted descending (highest price first)
     std::map<core::PriceTicks, std::list<core::Order>, std::greater<core::PriceTicks>> bids_;
-    // Asks sorted ascending (lowest price first)
     std::map<core::PriceTicks, std::list<core::Order>, std::less<core::PriceTicks>> asks_;
-
-    // Fast order index
     std::unordered_map<core::OrderId, OrderLocation> order_map_;
 
     core::Quantity total_bid_volume_{0};

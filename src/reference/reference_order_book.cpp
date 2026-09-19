@@ -199,34 +199,60 @@ Order* ReferenceOrderBook::get_best_ask_order() noexcept {
     return &asks_.begin()->second.front();
 }
 
-void ReferenceOrderBook::pop_best_bid_order() noexcept {
-    if (bids_.empty()) {
+void ReferenceOrderBook::fill_best_bid_order(Quantity fill_qty) noexcept {
+    if (bids_.empty() || fill_qty == 0) {
         return;
     }
     auto best_it = bids_.begin();
     auto& queue = best_it->second;
-    const auto& ord = queue.front();
-    total_bid_volume_ -= ord.remaining_quantity();
-    order_map_.erase(ord.order_id());
-    queue.pop_front();
-    if (queue.empty()) {
-        bids_.erase(best_it);
+    auto& ord = queue.front();
+
+    const Quantity actual_fill = std::min(fill_qty, ord.remaining_quantity());
+    [[maybe_unused]] const bool filled = ord.apply_fill(actual_fill);
+    total_bid_volume_ -= actual_fill;
+
+    if (ord.remaining_quantity() == 0) {
+        order_map_.erase(ord.order_id());
+        queue.pop_front();
+        if (queue.empty()) {
+            bids_.erase(best_it);
+        }
     }
+}
+
+void ReferenceOrderBook::fill_best_ask_order(Quantity fill_qty) noexcept {
+    if (asks_.empty() || fill_qty == 0) {
+        return;
+    }
+    auto best_it = asks_.begin();
+    auto& queue = best_it->second;
+    auto& ord = queue.front();
+
+    const Quantity actual_fill = std::min(fill_qty, ord.remaining_quantity());
+    [[maybe_unused]] const bool filled = ord.apply_fill(actual_fill);
+    total_ask_volume_ -= actual_fill;
+
+    if (ord.remaining_quantity() == 0) {
+        order_map_.erase(ord.order_id());
+        queue.pop_front();
+        if (queue.empty()) {
+            asks_.erase(best_it);
+        }
+    }
+}
+
+void ReferenceOrderBook::pop_best_bid_order() noexcept {
+    if (bids_.empty()) {
+        return;
+    }
+    fill_best_bid_order(bids_.begin()->second.front().remaining_quantity());
 }
 
 void ReferenceOrderBook::pop_best_ask_order() noexcept {
     if (asks_.empty()) {
         return;
     }
-    auto best_it = asks_.begin();
-    auto& queue = best_it->second;
-    const auto& ord = queue.front();
-    total_ask_volume_ -= ord.remaining_quantity();
-    order_map_.erase(ord.order_id());
-    queue.pop_front();
-    if (queue.empty()) {
-        asks_.erase(best_it);
-    }
+    fill_best_ask_order(asks_.begin()->second.front().remaining_quantity());
 }
 
 std::size_t ReferenceOrderBook::bid_level_count() const noexcept {
