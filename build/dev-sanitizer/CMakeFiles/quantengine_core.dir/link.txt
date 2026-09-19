@@ -1,2 +1,0 @@
-/usr/bin/ar qc libquantengine_core.a CMakeFiles/quantengine_core.dir/src/core/version.cpp.o
-/usr/bin/ranlib libquantengine_core.a

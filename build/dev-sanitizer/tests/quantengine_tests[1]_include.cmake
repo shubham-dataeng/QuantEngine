@@ -1,5 +1,0 @@
-if(EXISTS "/home/shubham/.gemini/antigravity/scratch/QuantEngine/build/dev-sanitizer/tests/quantengine_tests[1]_tests.cmake")
-  include("/home/shubham/.gemini/antigravity/scratch/QuantEngine/build/dev-sanitizer/tests/quantengine_tests[1]_tests.cmake")
-else()
-  add_test(quantengine_tests_NOT_BUILT quantengine_tests_NOT_BUILT)
-endif()

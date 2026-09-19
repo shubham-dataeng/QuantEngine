@@ -1,3 +1,0 @@
-SmokeTest.EngineVersionIsNonEmpty 1 0.011252
-SmokeTest.EngineCoreIsReady 1 0.0141788
----

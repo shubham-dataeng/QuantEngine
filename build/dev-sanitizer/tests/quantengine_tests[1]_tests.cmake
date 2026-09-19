@@ -1,5 +1,0 @@
-add_test([=[SmokeTest.EngineVersionIsNonEmpty]=]  /home/shubham/.gemini/antigravity/scratch/QuantEngine/build/dev-sanitizer/tests/quantengine_tests [==[--gtest_filter=SmokeTest.EngineVersionIsNonEmpty]==] --gtest_also_run_disabled_tests)
-set_tests_properties([=[SmokeTest.EngineVersionIsNonEmpty]=]  PROPERTIES WORKING_DIRECTORY /home/shubham/.gemini/antigravity/scratch/QuantEngine/build/dev-sanitizer/tests SKIP_REGULAR_EXPRESSION [==[\[  SKIPPED \]]==])
-add_test([=[SmokeTest.EngineCoreIsReady]=]  /home/shubham/.gemini/antigravity/scratch/QuantEngine/build/dev-sanitizer/tests/quantengine_tests [==[--gtest_filter=SmokeTest.EngineCoreIsReady]==] --gtest_also_run_disabled_tests)
-set_tests_properties([=[SmokeTest.EngineCoreIsReady]=]  PROPERTIES WORKING_DIRECTORY /home/shubham/.gemini/antigravity/scratch/QuantEngine/build/dev-sanitizer/tests SKIP_REGULAR_EXPRESSION [==[\[  SKIPPED \]]==])
-set(  quantengine_tests_TESTS SmokeTest.EngineVersionIsNonEmpty SmokeTest.EngineCoreIsReady)
