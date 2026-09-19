@@ -72,8 +72,8 @@ std::optional<Order> ReferenceOrderBook::cancel_order(OrderId order_id) {
     return cancelled_order;
 }
 
-bool ReferenceOrderBook::modify_order(OrderId order_id, PriceTicks new_price,
-                                     Quantity new_quantity, SeqNum new_seq) {
+bool ReferenceOrderBook::modify_order(OrderId order_id, PriceTicks new_price, Quantity new_quantity,
+                                      SeqNum new_seq) {
     if (new_price <= 0 || new_quantity == 0) {
         return false;
     }
