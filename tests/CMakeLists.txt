@@ -28,6 +28,7 @@ add_executable(quantengine_tests
     unit/test_reference_order_book.cpp
     unit/test_matching_engine.cpp
     unit/test_replay_and_invariants.cpp
+    unit/test_optimized_order_book.cpp
 )
 
 target_compile_features(quantengine_tests PRIVATE cxx_std_20)

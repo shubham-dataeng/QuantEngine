@@ -39,6 +39,7 @@ add_library(quantengine_core
     src/core/trade.cpp
     src/core/order.cpp
     src/reference/reference_order_book.cpp
+    src/optimized/optimized_order_book.cpp
     src/engine/matching_engine.cpp
     src/engine/canonical_state.cpp
     src/engine/invariants.cpp
