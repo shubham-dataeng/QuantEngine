@@ -1,7 +1,6 @@
 # Check if local GoogleTest checkout exists in third_party
 if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/googletest/CMakeLists.txt")
     message(STATUS "QuantEngine: Using vendored GoogleTest from third_party/googletest")
-    # Prevent overriding parent project compiler / runtime settings
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
     set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
     set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
@@ -23,6 +22,9 @@ endif()
 # Unit tests executable
 add_executable(quantengine_tests
     unit/test_smoke.cpp
+    unit/test_types.cpp
+    unit/test_order.cpp
+    unit/test_trade.cpp
 )
 
 target_compile_features(quantengine_tests PRIVATE cxx_std_20)

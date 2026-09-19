@@ -35,6 +35,9 @@ endif()
 # Core Library Target
 add_library(quantengine_core
     src/core/version.cpp
+    src/core/types.cpp
+    src/core/trade.cpp
+    src/core/order.cpp
 )
 
 target_compile_features(quantengine_core PUBLIC cxx_std_20)
