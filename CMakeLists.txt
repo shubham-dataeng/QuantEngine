@@ -12,6 +12,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Options
 option(QUANTENGINE_BUILD_TESTS "Build QuantEngine unit and integration test suite" ON)
 option(QUANTENGINE_BUILD_BENCHMARKS "Build QuantEngine benchmark suite" ON)
+option(QUANTENGINE_BUILD_PYTHON "Build QuantEngine Python bindings" ON)
 option(QUANTENGINE_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(QUANTENGINE_TREAT_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" ON)
 
@@ -58,6 +59,7 @@ target_include_directories(quantengine_core
 )
 
 target_compile_options(quantengine_core PRIVATE ${QUANTENGINE_WARNING_FLAGS})
+set_target_properties(quantengine_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # Sanitizers setup
 if (QUANTENGINE_ENABLE_SANITIZERS)
@@ -76,5 +78,10 @@ endif()
 # Benchmarks
 if (QUANTENGINE_BUILD_BENCHMARKS)
     add_subdirectory(benchmarks)
+endif()
+
+# Python Bindings
+if (QUANTENGINE_BUILD_PYTHON)
+    add_subdirectory(bindings/python)
 endif()
 

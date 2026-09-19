@@ -44,3 +44,16 @@ target_link_libraries(quantengine_tests
 
 include(GoogleTest)
 gtest_discover_tests(quantengine_tests)
+
+# Python PyTest Suite
+if (QUANTENGINE_BUILD_PYTHON)
+    find_package(Python3 COMPONENTS Interpreter REQUIRED)
+    add_test(
+        NAME quantengine_python_tests
+        COMMAND ${Python3_EXECUTABLE} -m pytest "${CMAKE_CURRENT_SOURCE_DIR}/python" -v
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/.."
+    )
+    set_tests_properties(quantengine_python_tests PROPERTIES
+        ENVIRONMENT "PYTHONPATH=${CMAKE_BINARY_DIR}/python"
+    )
+endif()
