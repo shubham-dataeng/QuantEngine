@@ -13,6 +13,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(QUANTENGINE_BUILD_TESTS "Build QuantEngine unit and integration test suite" ON)
 option(QUANTENGINE_BUILD_BENCHMARKS "Build QuantEngine benchmark suite" ON)
 option(QUANTENGINE_BUILD_PYTHON "Build QuantEngine Python bindings" ON)
+option(QUANTENGINE_BUILD_CLI "Build QuantEngine command line executable" ON)
 option(QUANTENGINE_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(QUANTENGINE_TREAT_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" ON)
 
@@ -83,5 +84,15 @@ endif()
 # Python Bindings
 if (QUANTENGINE_BUILD_PYTHON)
     add_subdirectory(bindings/python)
+endif()
+
+# CLI Executable Target
+if (QUANTENGINE_BUILD_CLI)
+    add_executable(quantengine_cli
+        src/cli/main.cpp
+    )
+    target_compile_features(quantengine_cli PRIVATE cxx_std_20)
+    target_compile_options(quantengine_cli PRIVATE ${QUANTENGINE_WARNING_FLAGS})
+    target_link_libraries(quantengine_cli PRIVATE quantengine_core)
 endif()
 

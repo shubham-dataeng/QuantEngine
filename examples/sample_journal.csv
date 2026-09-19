@@ -1,0 +1,27 @@
+# QuantEngine Sample Event Journal
+# Format:
+# CREATE,order_id,side,price,quantity
+# CANCEL,order_id
+# MODIFY,order_id,new_price,new_quantity
+
+# 1. Add resting bids
+CREATE,1,BUY,9900,100
+CREATE,2,BUY,9950,50
+CREATE,3,BUY,9950,150
+
+# 2. Add resting asks
+CREATE,4,SELL,10050,80
+CREATE,5,SELL,10050,120
+CREATE,6,SELL,10100,200
+
+# 3. Cancel order 1
+CANCEL,1
+
+# 4. Modify order 2 price
+MODIFY,2,9960,60
+
+# 5. Aggressive sweep buy order (sweeps 10050 and partially fills 10100)
+CREATE,7,BUY,10100,250
+
+# 6. Another buy order to rest
+CREATE,8,BUY,9980,100
