@@ -1,0 +1,57 @@
+Start testing: Sep 19 20:24 IST
+----------------------------------------------------------
+1/2 Testing: SmokeTest.EngineVersionIsNonEmpty
+1/2 Test: SmokeTest.EngineVersionIsNonEmpty
+Command: "/home/shubham/.gemini/antigravity/scratch/QuantEngine/build/dev-debug/tests/quantengine_tests" "--gtest_filter=SmokeTest.EngineVersionIsNonEmpty" "--gtest_also_run_disabled_tests"
+Directory: /home/shubham/.gemini/antigravity/scratch/QuantEngine/build/dev-debug/tests
+"SmokeTest.EngineVersionIsNonEmpty" start time: Sep 19 20:24 IST
+Output:
+----------------------------------------------------------
+Running main() from /home/shubham/.gemini/antigravity/scratch/QuantEngine/third_party/googletest/googletest/src/gtest_main.cc
+Note: Google Test filter = SmokeTest.EngineVersionIsNonEmpty
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from SmokeTest
+[ RUN      ] SmokeTest.EngineVersionIsNonEmpty
+[       OK ] SmokeTest.EngineVersionIsNonEmpty (0 ms)
+[----------] 1 test from SmokeTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"SmokeTest.EngineVersionIsNonEmpty" end time: Sep 19 20:24 IST
+"SmokeTest.EngineVersionIsNonEmpty" time elapsed: 00:00:00
+----------------------------------------------------------
+
+2/2 Testing: SmokeTest.EngineCoreIsReady
+2/2 Test: SmokeTest.EngineCoreIsReady
+Command: "/home/shubham/.gemini/antigravity/scratch/QuantEngine/build/dev-debug/tests/quantengine_tests" "--gtest_filter=SmokeTest.EngineCoreIsReady" "--gtest_also_run_disabled_tests"
+Directory: /home/shubham/.gemini/antigravity/scratch/QuantEngine/build/dev-debug/tests
+"SmokeTest.EngineCoreIsReady" start time: Sep 19 20:24 IST
+Output:
+----------------------------------------------------------
+Running main() from /home/shubham/.gemini/antigravity/scratch/QuantEngine/third_party/googletest/googletest/src/gtest_main.cc
+Note: Google Test filter = SmokeTest.EngineCoreIsReady
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from SmokeTest
+[ RUN      ] SmokeTest.EngineCoreIsReady
+[       OK ] SmokeTest.EngineCoreIsReady (0 ms)
+[----------] 1 test from SmokeTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"SmokeTest.EngineCoreIsReady" end time: Sep 19 20:24 IST
+"SmokeTest.EngineCoreIsReady" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Sep 19 20:24 IST

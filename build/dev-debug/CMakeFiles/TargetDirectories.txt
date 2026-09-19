@@ -1,0 +1,16 @@
+/home/shubham/.gemini/antigravity/scratch/QuantEngine/build/dev-debug/CMakeFiles/quantengine_core.dir
+/home/shubham/.gemini/antigravity/scratch/QuantEngine/build/dev-debug/CMakeFiles/test.dir
+/home/shubham/.gemini/antigravity/scratch/QuantEngine/build/dev-debug/CMakeFiles/edit_cache.dir
+/home/shubham/.gemini/antigravity/scratch/QuantEngine/build/dev-debug/CMakeFiles/rebuild_cache.dir
+/home/shubham/.gemini/antigravity/scratch/QuantEngine/build/dev-debug/tests/CMakeFiles/quantengine_tests.dir
+/home/shubham/.gemini/antigravity/scratch/QuantEngine/build/dev-debug/tests/CMakeFiles/test.dir
+/home/shubham/.gemini/antigravity/scratch/QuantEngine/build/dev-debug/tests/CMakeFiles/edit_cache.dir
+/home/shubham/.gemini/antigravity/scratch/QuantEngine/build/dev-debug/tests/CMakeFiles/rebuild_cache.dir
+/home/shubham/.gemini/antigravity/scratch/QuantEngine/build/dev-debug/tests/third_party/googletest/CMakeFiles/test.dir
+/home/shubham/.gemini/antigravity/scratch/QuantEngine/build/dev-debug/tests/third_party/googletest/CMakeFiles/edit_cache.dir
+/home/shubham/.gemini/antigravity/scratch/QuantEngine/build/dev-debug/tests/third_party/googletest/CMakeFiles/rebuild_cache.dir
+/home/shubham/.gemini/antigravity/scratch/QuantEngine/build/dev-debug/tests/third_party/googletest/googletest/CMakeFiles/gtest.dir
+/home/shubham/.gemini/antigravity/scratch/QuantEngine/build/dev-debug/tests/third_party/googletest/googletest/CMakeFiles/gtest_main.dir
+/home/shubham/.gemini/antigravity/scratch/QuantEngine/build/dev-debug/tests/third_party/googletest/googletest/CMakeFiles/test.dir
+/home/shubham/.gemini/antigravity/scratch/QuantEngine/build/dev-debug/tests/third_party/googletest/googletest/CMakeFiles/edit_cache.dir
+/home/shubham/.gemini/antigravity/scratch/QuantEngine/build/dev-debug/tests/third_party/googletest/googletest/CMakeFiles/rebuild_cache.dir

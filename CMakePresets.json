@@ -1,0 +1,90 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 28,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_CXX_STANDARD": "20",
+        "CMAKE_CXX_STANDARD_REQUIRED": "ON",
+        "CMAKE_CXX_EXTENSIONS": "OFF"
+      }
+    },
+    {
+      "name": "dev-debug",
+      "inherits": "base",
+      "displayName": "Developer Debug Build",
+      "description": "Debug configuration with assertions and debug symbols",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "QUANTENGINE_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "dev-release",
+      "inherits": "base",
+      "displayName": "Developer Release Build",
+      "description": "Optimized release build for benchmarking and performance",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "QUANTENGINE_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "dev-sanitizer",
+      "inherits": "base",
+      "displayName": "Developer Sanitizer Build",
+      "description": "Debug build with AddressSanitizer and UndefinedBehaviorSanitizer enabled",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "QUANTENGINE_ENABLE_SANITIZERS": "ON",
+        "QUANTENGINE_BUILD_TESTS": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "dev-debug",
+      "configurePreset": "dev-debug"
+    },
+    {
+      "name": "dev-release",
+      "configurePreset": "dev-release"
+    },
+    {
+      "name": "dev-sanitizer",
+      "configurePreset": "dev-sanitizer"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "dev-debug",
+      "configurePreset": "dev-debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "dev-release",
+      "configurePreset": "dev-release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "dev-sanitizer",
+      "configurePreset": "dev-sanitizer",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}
