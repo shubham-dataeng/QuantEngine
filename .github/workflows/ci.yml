@@ -33,11 +33,11 @@ jobs:
       - name: Install Build Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build build-essential clang-format
+          sudo apt-get install -y cmake ninja-build build-essential clang-format python3-pytest python3-dev
 
       - name: Check Code Formatting
         run: |
-          find include src tests -name '*.hpp' -o -name '*.cpp' | xargs clang-format --dry-run --Werror
+          find include src tests benchmarks bindings -name '*.hpp' -o -name '*.cpp' | xargs clang-format --dry-run --Werror
 
       - name: Configure CMake
         run: cmake --preset ${{ matrix.preset }}
