@@ -25,10 +25,12 @@ struct OrderNode {
     bool in_use{false};
 };
 
+static constexpr std::size_t kDefaultCapacity = 65536;
+
 // Contiguous object pool with free list recycling to eliminate per-order heap allocations
 class OrderPool {
 public:
-    explicit OrderPool(std::size_t initial_capacity = 1024);
+    explicit OrderPool(std::size_t initial_capacity = kDefaultCapacity);
 
     [[nodiscard]] std::uint32_t allocate(core::Order order);
     void deallocate(std::uint32_t index) noexcept;
@@ -59,7 +61,7 @@ struct PriceLevel {
 
 class OptimizedOrderBook {
 public:
-    explicit OptimizedOrderBook(std::size_t initial_capacity = 1024);
+    explicit OptimizedOrderBook(std::size_t initial_capacity = kDefaultCapacity);
     ~OptimizedOrderBook() = default;
 
     OptimizedOrderBook(const OptimizedOrderBook&) = delete;
@@ -99,6 +101,7 @@ public:
     [[nodiscard]] core::Quantity total_bid_volume() const noexcept;
     [[nodiscard]] core::Quantity total_ask_volume() const noexcept;
     [[nodiscard]] bool is_empty() const noexcept;
+    void clear() noexcept;
 
     [[nodiscard]] std::vector<reference::LevelInfo> get_bids(std::size_t max_levels = 0) const;
     [[nodiscard]] std::vector<reference::LevelInfo> get_asks(std::size_t max_levels = 0) const;

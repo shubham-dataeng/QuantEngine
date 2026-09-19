@@ -11,6 +11,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Options
 option(QUANTENGINE_BUILD_TESTS "Build QuantEngine unit and integration test suite" ON)
+option(QUANTENGINE_BUILD_BENCHMARKS "Build QuantEngine benchmark suite" ON)
 option(QUANTENGINE_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(QUANTENGINE_TREAT_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" ON)
 
@@ -71,3 +72,9 @@ if (QUANTENGINE_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()
+
+# Benchmarks
+if (QUANTENGINE_BUILD_BENCHMARKS)
+    add_subdirectory(benchmarks)
+endif()
+

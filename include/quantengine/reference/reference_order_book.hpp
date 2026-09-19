@@ -63,6 +63,7 @@ public:
     [[nodiscard]] core::Quantity total_bid_volume() const noexcept;
     [[nodiscard]] core::Quantity total_ask_volume() const noexcept;
     [[nodiscard]] bool is_empty() const noexcept;
+    void clear() noexcept;
 
     [[nodiscard]] std::vector<LevelInfo> get_bids(std::size_t max_levels = 0) const;
     [[nodiscard]] std::vector<LevelInfo> get_asks(std::size_t max_levels = 0) const;

@@ -25,7 +25,8 @@
       "description": "Debug configuration with assertions and debug symbols",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "QUANTENGINE_BUILD_TESTS": "ON"
+        "QUANTENGINE_BUILD_TESTS": "ON",
+        "QUANTENGINE_BUILD_BENCHMARKS": "OFF"
       }
     },
     {
@@ -35,7 +36,8 @@
       "description": "Optimized release build for benchmarking and performance",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "QUANTENGINE_BUILD_TESTS": "ON"
+        "QUANTENGINE_BUILD_TESTS": "ON",
+        "QUANTENGINE_BUILD_BENCHMARKS": "ON"
       }
     },
     {
@@ -46,7 +48,8 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "QUANTENGINE_ENABLE_SANITIZERS": "ON",
-        "QUANTENGINE_BUILD_TESTS": "ON"
+        "QUANTENGINE_BUILD_TESTS": "ON",
+        "QUANTENGINE_BUILD_BENCHMARKS": "OFF"
       }
     }
   ],

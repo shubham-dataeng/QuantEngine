@@ -396,6 +396,15 @@ bool OptimizedOrderBook::is_empty() const noexcept {
     return order_index_.empty();
 }
 
+void OptimizedOrderBook::clear() noexcept {
+    pool_.clear();
+    order_index_.clear();
+    bids_.clear();
+    asks_.clear();
+    total_bid_volume_ = 0;
+    total_ask_volume_ = 0;
+}
+
 std::vector<reference::LevelInfo> OptimizedOrderBook::get_bids(std::size_t max_levels) const {
     std::vector<reference::LevelInfo> levels;
     const auto limit = (max_levels == 0) ? bids_.size() : std::min(max_levels, bids_.size());

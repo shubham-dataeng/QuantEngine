@@ -77,7 +77,7 @@ public:
     [[nodiscard]] BookType& book() noexcept { return book_; }
 
     void reset() noexcept {
-        book_ = BookType{};
+        book_.clear();
         next_sequence_ = 1;
         next_trade_id_ = 1;
     }

@@ -279,6 +279,14 @@ bool ReferenceOrderBook::is_empty() const noexcept {
     return order_map_.empty();
 }
 
+void ReferenceOrderBook::clear() noexcept {
+    bids_.clear();
+    asks_.clear();
+    order_map_.clear();
+    total_bid_volume_ = 0;
+    total_ask_volume_ = 0;
+}
+
 std::vector<LevelInfo> ReferenceOrderBook::get_bids(std::size_t max_levels) const {
     std::vector<LevelInfo> levels;
     const auto limit = (max_levels == 0) ? bids_.size() : std::min(max_levels, bids_.size());
