@@ -5,7 +5,8 @@
 namespace quantengine::core {
 
 bool Order::mark_resting() noexcept {
-    if (status_ == OrderStatus::New || status_ == OrderStatus::PartiallyFilled) {
+    if (status_ == OrderStatus::New || status_ == OrderStatus::PartiallyFilled ||
+        status_ == OrderStatus::Resting) {
         status_ = OrderStatus::Resting;
         return true;
     }
@@ -77,8 +78,8 @@ bool Order::check_invariants() const noexcept {
 
 std::ostream& operator<<(std::ostream& os, const Order& order) {
     return os << "Order{id=" << order.order_id() << ", side=" << order.side()
-              << ", px=" << order.price() << ", rem=" << order.remaining_quantity() << "/"
-              << order.initial_quantity() << ", status=" << order.status()
+              << ", px=" << order.price() << ", rem=" << order.remaining_quantity()
+              << "/" << order.initial_quantity() << ", status=" << order.status()
               << ", seq=" << order.sequence_number() << "}";
 }
 

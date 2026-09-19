@@ -51,8 +51,9 @@ public:
     // Invariants
     [[nodiscard]] bool check_invariants() const noexcept;
 
-    // Modification helper: updates remaining quantity and priority sequence
+    // Modification helpers
     void update_priority_sequence(SeqNum new_seq) noexcept { sequence_number_ = new_seq; }
+    void update_price(PriceTicks new_price) noexcept { price_ = new_price; }
     void update_remaining_quantity(Quantity new_qty) noexcept {
         remaining_quantity_ = new_qty;
         if (new_qty > initial_quantity_) {
