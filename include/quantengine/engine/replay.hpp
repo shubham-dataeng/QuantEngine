@@ -1,11 +1,12 @@
 #pragma once
 
+#include <string>
 #include <vector>
 
 #include "quantengine/core/events.hpp"
 #include "quantengine/engine/canonical_state.hpp"
+#include "quantengine/engine/generic_matching_engine.hpp"
 #include "quantengine/engine/invariants.hpp"
-#include "quantengine/engine/matching_engine.hpp"
 
 namespace quantengine::engine {
 
@@ -19,13 +20,69 @@ struct ReplayResult {
 
 class ReplayEngine {
 public:
-    // Replay a sequence of order commands from a clean engine state
-    [[nodiscard]] static ReplayResult replay(const std::vector<core::OrderCommand>& commands);
+    template <typename BookType = reference::ReferenceOrderBook>
+    [[nodiscard]] static ReplayResult replay(const std::vector<core::OrderCommand>& commands) {
+        GenericMatchingEngine<BookType> engine;
+        ReplayResult result;
+        result.execution_reports.reserve(commands.size());
 
-    // Verify determinism: runs two completely separate engine instances over the exact same
-    // event sequence and verifies bit-for-bit equivalence of reports, trades, and final state
-    // hashes
-    [[nodiscard]] static bool verify_determinism(const std::vector<core::OrderCommand>& commands);
+        for (const auto& cmd : commands) {
+            auto report = engine.process_command(cmd);
+            for (const auto& trade : report.trades) {
+                result.all_trades.push_back(trade);
+            }
+            result.execution_reports.push_back(std::move(report));
+
+            auto audit = InvariantAuditor::audit(engine);
+            if (!audit.ok) {
+                result.invariants_satisfied = false;
+                result.failure_reason = audit.error_message;
+                result.final_hash = CanonicalState::compute_hash(engine);
+                return result;
+            }
+        }
+
+        result.final_hash = CanonicalState::compute_hash(engine);
+        result.invariants_satisfied = true;
+        return result;
+    }
+
+    template <typename BookType1 = reference::ReferenceOrderBook,
+              typename BookType2 = reference::ReferenceOrderBook>
+    [[nodiscard]] static bool verify_determinism(const std::vector<core::OrderCommand>& commands) {
+        const auto run1 = replay<BookType1>(commands);
+        const auto run2 = replay<BookType2>(commands);
+
+        if (!run1.invariants_satisfied || !run2.invariants_satisfied) {
+            return false;
+        }
+
+        if (run1.final_hash != run2.final_hash) {
+            return false;
+        }
+
+        if (run1.execution_reports.size() != run2.execution_reports.size()) {
+            return false;
+        }
+
+        for (std::size_t i = 0; i < run1.execution_reports.size(); ++i) {
+            if (run1.execution_reports[i] != run2.execution_reports[i]) {
+                return false;
+            }
+        }
+
+        if (run1.all_trades.size() != run2.all_trades.size()) {
+            return false;
+        }
+
+        for (std::size_t i = 0; i < run1.all_trades.size(); ++i) {
+            if (run1.all_trades[i] != run2.all_trades[i]) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 };
 
 }  // namespace quantengine::engine

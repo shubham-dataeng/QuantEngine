@@ -29,6 +29,7 @@ add_executable(quantengine_tests
     unit/test_matching_engine.cpp
     unit/test_replay_and_invariants.cpp
     unit/test_optimized_order_book.cpp
+    fuzz/test_differential_fuzz.cpp
 )
 
 target_compile_features(quantengine_tests PRIVATE cxx_std_20)
