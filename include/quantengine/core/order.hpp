@@ -75,4 +75,11 @@ private:
 
 std::ostream& operator<<(std::ostream& os, const Order& order);
 
+// Layout guard: if Quantity or any field type changes, update this assert and document the
+// new cache-line density. Current layout on x86-64 (GCC 13, Quantity=uint64_t):
+//   order_id(8) | side(1)+7pad | price(8) | init_qty(8) | rem_qty(8) | seq(8) | status(1)+7pad
+//   = 56 bytes  => 1.14 OrderNode per 64-byte cache line (see optimized_order_book.hpp)
+static_assert(sizeof(Order) == 56,
+              "core::Order layout changed — update OrderNode static_assert and cache-line docs");
+
 }  // namespace quantengine::core

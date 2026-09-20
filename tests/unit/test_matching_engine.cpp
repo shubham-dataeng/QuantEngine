@@ -188,17 +188,33 @@ TEST_F(MatchingEngineTest, ModifyOrderAndCrossingExecution) {
     // Resting buy at 9500
     EXPECT_EQ(engine.submit_order(2, Side::Buy, 9500, 10).status, OrderStatus::Resting);
 
-    // Modify Buy to 10600 (now crosses the sell at 10500!)
+    // Attempt to modify Buy to 10600 — would cross the resting sell at 10500.
+    // This is now REJECTED: modify cannot silently become an aggressive order.
+    // The caller must explicitly cancel-then-place to achieve crossing execution.
     auto mr = engine.modify_order(2, 10600, 15);
-    EXPECT_EQ(mr.status, OrderStatus::Filled);
-    EXPECT_EQ(mr.filled_quantity, 15);
-    EXPECT_EQ(mr.remaining_quantity, 0);
-    ASSERT_EQ(mr.trades.size(), 1);
+    EXPECT_EQ(mr.status, OrderStatus::Rejected);
+    EXPECT_EQ(mr.reject_reason, RejectReason::ModifyCrossesSpread);
+    EXPECT_EQ(mr.order_id, 2);
 
-    EXPECT_EQ(mr.trades[0].maker_order_id, 1);
-    EXPECT_EQ(mr.trades[0].taker_order_id, 2);
-    EXPECT_EQ(mr.trades[0].price, 10500);
-    EXPECT_EQ(mr.trades[0].quantity, 15);
+    // Both original orders must remain untouched
+    EXPECT_EQ(engine.book().total_orders(), 2);
+    EXPECT_EQ(engine.book().best_bid_price(), 9500);
+    EXPECT_EQ(engine.book().best_bid_quantity(), 10);
+    EXPECT_EQ(engine.book().best_ask_price(), 10500);
+    EXPECT_EQ(engine.book().best_ask_quantity(), 20);
+
+    // Explicit cancel-then-place is the supported path for intentional crossing execution
+    auto cr = engine.cancel_order(2);
+    EXPECT_EQ(cr.status, OrderStatus::Cancelled);
+
+    auto nr = engine.submit_order(3, Side::Buy, 10600, 15);
+    EXPECT_EQ(nr.status, OrderStatus::Filled);
+    EXPECT_EQ(nr.filled_quantity, 15);
+    ASSERT_EQ(nr.trades.size(), 1);
+    EXPECT_EQ(nr.trades[0].maker_order_id, 1);
+    EXPECT_EQ(nr.trades[0].taker_order_id, 3);
+    EXPECT_EQ(nr.trades[0].price, 10500);  // maker price rule
+    EXPECT_EQ(nr.trades[0].quantity, 15);
 
     // Resting sell has 5 remaining
     EXPECT_EQ(engine.book().total_orders(), 1);
@@ -222,6 +238,87 @@ TEST_F(MatchingEngineTest, ProcessCommandInterface) {
     EXPECT_EQ(r3.sequence_number, 102);
     EXPECT_EQ(r3.status, OrderStatus::Cancelled);
     EXPECT_TRUE(engine.book().is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// Milestone 1: modify-crosses-spread guard tests
+// ---------------------------------------------------------------------------
+
+// A buy resting at 9500 must not be modifiable to a price >= best ask (10000).
+// The original order must remain in the book untouched after rejection.
+TEST_F(MatchingEngineTest, ModifyCrossesSpreadBuyIsRejected) {
+    // Seed book: ask at 10000, bid at 9500
+    ASSERT_EQ(engine.submit_order(1, Side::Sell, 10000, 20).status, OrderStatus::Resting);
+    ASSERT_EQ(engine.submit_order(2, Side::Buy, 9500, 50).status, OrderStatus::Resting);
+    ASSERT_EQ(engine.book().total_orders(), 2);
+
+    // Attempt to modify bid to 10000 — would cross the best ask
+    auto r = engine.modify_order(2, 10000, 50);
+    EXPECT_EQ(r.status, OrderStatus::Rejected);
+    EXPECT_EQ(r.reject_reason, RejectReason::ModifyCrossesSpread);
+    EXPECT_EQ(r.order_id, 2);
+
+    // Original bid must still be resting at its original price and quantity
+    EXPECT_EQ(engine.book().total_orders(), 2);
+    EXPECT_EQ(engine.book().best_bid_price(), 9500);
+    EXPECT_EQ(engine.book().best_bid_quantity(), 50);
+
+    // Existing ask must also be untouched
+    EXPECT_EQ(engine.book().best_ask_price(), 10000);
+    EXPECT_EQ(engine.book().best_ask_quantity(), 20);
+}
+
+// A sell resting at 10500 must not be modifiable to a price <= best bid (10000).
+// The original order must remain in the book untouched after rejection.
+TEST_F(MatchingEngineTest, ModifyCrossesSpreadSellIsRejected) {
+    // Seed book: bid at 10000, ask at 10500
+    ASSERT_EQ(engine.submit_order(1, Side::Buy, 10000, 30).status, OrderStatus::Resting);
+    ASSERT_EQ(engine.submit_order(2, Side::Sell, 10500, 40).status, OrderStatus::Resting);
+    ASSERT_EQ(engine.book().total_orders(), 2);
+
+    // Attempt to modify ask to 10000 — would cross the best bid
+    auto r = engine.modify_order(2, 10000, 40);
+    EXPECT_EQ(r.status, OrderStatus::Rejected);
+    EXPECT_EQ(r.reject_reason, RejectReason::ModifyCrossesSpread);
+    EXPECT_EQ(r.order_id, 2);
+
+    // Original ask must still be resting
+    EXPECT_EQ(engine.book().total_orders(), 2);
+    EXPECT_EQ(engine.book().best_ask_price(), 10500);
+    EXPECT_EQ(engine.book().best_ask_quantity(), 40);
+
+    // Existing bid must also be untouched
+    EXPECT_EQ(engine.book().best_bid_price(), 10000);
+    EXPECT_EQ(engine.book().best_bid_quantity(), 30);
+}
+
+// A modify that only changes quantity (same non-crossing price) must complete.
+// Quantity reduction must NOT preserve the order's original position in the FIFO queue:
+// by cancel+reinsert semantics, the order moves to the tail. This is the documented
+// semantic for QuantEngine (all modifies are cancel+reinsert; partial-qty-reduce
+// with priority retention would require a separate in-place API).
+TEST_F(MatchingEngineTest, ModifyQuantityNonCrossingSucceeds) {
+    ASSERT_EQ(engine.submit_order(1, Side::Sell, 10500, 50).status, OrderStatus::Resting);
+
+    // Modify to a smaller quantity at same non-crossing price — must succeed
+    auto r = engine.modify_order(1, 10500, 30);
+    EXPECT_EQ(r.status, OrderStatus::Resting);
+    EXPECT_EQ(r.reject_reason, RejectReason::None);
+    EXPECT_EQ(r.remaining_quantity, 30);
+    EXPECT_EQ(engine.book().total_orders(), 1);
+    EXPECT_EQ(engine.book().best_ask_price(), 10500);
+    EXPECT_EQ(engine.book().best_ask_quantity(), 30);
+}
+
+// Modify to a passively non-crossing price on an empty opposing side must succeed.
+TEST_F(MatchingEngineTest, ModifyNoCrossWhenOpposingSideEmpty) {
+    ASSERT_EQ(engine.submit_order(1, Side::Buy, 9000, 10).status, OrderStatus::Resting);
+
+    // No asks exist — any bid price modification is safe
+    auto r = engine.modify_order(1, 9500, 10);
+    EXPECT_EQ(r.status, OrderStatus::Resting);
+    EXPECT_EQ(r.reject_reason, RejectReason::None);
+    EXPECT_EQ(engine.book().best_bid_price(), 9500);
 }
 
 }  // namespace quantengine::test

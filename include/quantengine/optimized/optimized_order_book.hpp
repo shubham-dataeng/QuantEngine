@@ -129,4 +129,22 @@ private:
     core::Quantity total_ask_volume_{0};
 };
 
+// Layout guard: OrderNode must remain compact for pool cache density.
+// Current layout on x86-64 (GCC 13, Order=56B, indices=4B each, bool=1B):
+//   Order(56) | prev(4) | next(4) | in_use(1) + 7pad = 72 bytes
+//   => 0.89 nodes per 64-byte cache line
+// To improve density: shrink Quantity to uint32_t (saves 16B on Order -> 40B -> OrderNode 56B,
+// 1.14/CL) or add alignas(64) and pad to full cache line to eliminate false sharing.
+static_assert(sizeof(OrderNode) == 72,
+              "OrderNode layout changed — update cache-line density docs in ARCHITECTURE.md");
+
+// ALLOCATION CONTRACT:
+//   - Order node allocation/deallocation: O(1), zero heap (OrderPool free-list).
+//   - Price level insertion (new PriceTicks): O(log M) + std::map node heap allocation.
+//   - Price level removal (empty level erase): O(log M) + std::map node heap deallocation.
+//   - order_index_ lookup/erase: O(1) avg, std::unordered_map may rehash on growth.
+//   For a deep book with many active price levels, price-level churn is the remaining
+//   allocation source. A flat sorted array or preallocated node pool for map nodes would
+//   eliminate it; current design prioritises simplicity over that last allocation class.
+
 }  // namespace quantengine::optimized

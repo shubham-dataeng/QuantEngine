@@ -79,7 +79,11 @@ enum class RejectReason : std::uint8_t {
     InvalidQuantity,
     OrderAlreadyFilled,
     OrderAlreadyCancelled,
-    InvalidStateTransition
+    InvalidStateTransition,
+    // Modify rejected because the new price would immediately cross the opposing best,
+    // turning a modification into an implicit aggressive order. Callers must explicitly
+    // cancel-then-place if crossing execution is the intent.
+    ModifyCrossesSpread
 };
 
 [[nodiscard]] constexpr std::string_view to_string(RejectReason reason) noexcept {
@@ -100,6 +104,8 @@ enum class RejectReason : std::uint8_t {
             return "ORDER_ALREADY_CANCELLED";
         case RejectReason::InvalidStateTransition:
             return "INVALID_STATE_TRANSITION";
+        case RejectReason::ModifyCrossesSpread:
+            return "MODIFY_CROSSES_SPREAD";
     }
     return "UNKNOWN";
 }

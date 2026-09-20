@@ -274,6 +274,45 @@ private:
         }
 
         const core::Side side = existing->side();
+        const core::PriceTicks old_price = existing->price();
+        const core::Quantity old_remaining = existing->remaining_quantity();
+        const core::Quantity old_filled = existing->filled_quantity();
+
+        // Guard: reject if the new price would immediately cross the opposing best.
+        // A modify that crosses the spread is semantically an aggressive order, not a
+        // modification. The caller must explicitly cancel-then-place if that is the intent.
+        // The original order remains in the book untouched on rejection.
+        if (side == core::Side::Buy) {
+            const auto best_ask = book_.best_ask_price();
+            if (best_ask.has_value() && cmd.new_price >= *best_ask) {
+                return core::ExecutionReport{.order_id = cmd.order_id,
+                                             .status = core::OrderStatus::Rejected,
+                                             .reject_reason =
+                                                 core::RejectReason::ModifyCrossesSpread,
+                                             .remaining_quantity = old_remaining,
+                                             .filled_quantity = old_filled,
+                                             .price = old_price,
+                                             .side = side,
+                                             .sequence_number = seq,
+                                             .trades = {}};
+            }
+        } else {
+            const auto best_bid = book_.best_bid_price();
+            if (best_bid.has_value() && cmd.new_price <= *best_bid) {
+                return core::ExecutionReport{.order_id = cmd.order_id,
+                                             .status = core::OrderStatus::Rejected,
+                                             .reject_reason =
+                                                 core::RejectReason::ModifyCrossesSpread,
+                                             .remaining_quantity = old_remaining,
+                                             .filled_quantity = old_filled,
+                                             .price = old_price,
+                                             .side = side,
+                                             .sequence_number = seq,
+                                             .trades = {}};
+            }
+        }
+
+        // Safe to cancel: new price is validated non-crossing.
         [[maybe_unused]] auto cancelled_opt = book_.cancel_order(cmd.order_id);
 
         return handle_create(
