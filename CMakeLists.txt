@@ -9,6 +9,10 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# CMake module path — picks up project-level cmake/ helpers
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(QuantEngineCompileOptions)
+
 # Options
 option(QUANTENGINE_BUILD_TESTS "Build QuantEngine unit and integration test suite" ON)
 option(QUANTENGINE_BUILD_BENCHMARKS "Build QuantEngine benchmark suite" ON)
@@ -16,6 +20,8 @@ option(QUANTENGINE_BUILD_PYTHON "Build QuantEngine Python bindings" ON)
 option(QUANTENGINE_BUILD_CLI "Build QuantEngine command line executable" ON)
 option(QUANTENGINE_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(QUANTENGINE_TREAT_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" ON)
+# Set ON in CI once clang-tidy is installed (apt install clang-tidy-18)
+option(QUANTENGINE_ENABLE_CLANG_TIDY "Run clang-tidy on all platform targets" OFF)
 
 # Common compiler warning flags
 set(QUANTENGINE_WARNING_FLAGS
