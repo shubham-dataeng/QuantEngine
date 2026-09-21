@@ -30,6 +30,9 @@ add_executable(quantengine_tests
     unit/test_replay_and_invariants.cpp
     unit/test_optimized_order_book.cpp
     fuzz/test_differential_fuzz.cpp
+    # Platform layer TDD harnesses (Milestone 3)
+    unit/test_risk_manager.cpp
+    unit/test_event_routing.cpp
 )
 
 target_compile_features(quantengine_tests PRIVATE cxx_std_20)
