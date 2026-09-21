@@ -53,9 +53,11 @@ add_library(quantengine_core
     src/engine/canonical_state.cpp
     src/engine/invariants.cpp
     src/engine/replay.cpp
-    # Platform layer — M4 and M7 implementations
+    # Platform layer — M4, M6, M7, M8 implementations
     src/execution/SimGateway.cpp
     src/risk/StandardRiskManager.cpp
+    src/portfolio/Portfolio.cpp
+    src/strategy/StrategyRunner.cpp
 )
 
 target_compile_features(quantengine_core PUBLIC cxx_std_20)

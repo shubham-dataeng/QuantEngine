@@ -62,6 +62,18 @@ using SymbolArray = std::array<char, kMaxSymbolLen>;
     return {arr.data(), len};
 }
 
+// FNV-1a hash for SymbolArray — enables use as std::unordered_map key.
+struct SymbolHash {
+    [[nodiscard]] auto operator()(const SymbolArray& s) const noexcept -> std::size_t {
+        std::size_t h = 14695981039346656037ULL;
+        for (const char c : s) {
+            h ^= static_cast<std::size_t>(static_cast<unsigned char>(c));
+            h *= 1099511628211ULL;
+        }
+        return h;
+    }
+};
+
 // ---------------------------------------------------------------------------
 // Timestamp: nanoseconds since Unix epoch.
 // ---------------------------------------------------------------------------
