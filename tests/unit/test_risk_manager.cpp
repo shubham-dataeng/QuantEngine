@@ -2,6 +2,9 @@
 
 #include "quantengine/execution/IExecutionGateway.hpp"
 #include "quantengine/risk/IRiskManager.hpp"
+#ifdef QUANTENGINE_RISK_IMPL
+#include "quantengine/risk/StandardRiskManager.hpp"
+#endif
 
 // =============================================================================
 // RiskManagerTest — TDD skeleton for the StandardRiskManager implementation.
@@ -38,28 +41,24 @@ using namespace quantengine::risk;
 // ---------------------------------------------------------------------------
 
 // Build a minimal OrderRequest for testing without worrying about all fields.
-[[nodiscard]] static auto make_request(OrderId id,
-                                       Side side,
-                                       PriceTicks price,
-                                       Quantity qty,
+[[nodiscard]] static auto make_request(OrderId id, Side side, PriceTicks price, Quantity qty,
                                        std::string_view sym = "AAPL") noexcept -> OrderRequest {
     OrderRequest req{};
     req.client_order_id = id;
-    req.side            = side;
-    req.price           = price;
-    req.quantity        = qty;
-    req.type            = OrderType::Limit;
-    req.time_in_force   = TimeInForce::Day;
-    req.symbol          = market::make_symbol(sym);
+    req.side = side;
+    req.price = price;
+    req.quantity = qty;
+    req.type = OrderType::Limit;
+    req.time_in_force = TimeInForce::Day;
+    req.symbol = market::make_symbol(sym);
     return req;
 }
 
-[[nodiscard]] static auto make_portfolio(PriceTicks realized_pnl = 0,
-                                         Quantity net_position    = 0,
-                                         PriceTicks gross_exp     = 0) noexcept -> PortfolioView {
+[[nodiscard]] static auto make_portfolio(PriceTicks realized_pnl = 0, Quantity net_position = 0,
+                                         PriceTicks gross_exp = 0) noexcept -> PortfolioView {
     PortfolioView pv{};
-    pv.session_realized_pnl   = realized_pnl;
-    pv.net_position           = net_position;
+    pv.session_realized_pnl = realized_pnl;
+    pv.net_position = net_position;
     pv.gross_notional_exposure = gross_exp;
     return pv;
 }
@@ -75,8 +74,8 @@ protected:
 
 TEST_F(NullRiskManagerTest, ApprovesEveryOrder) {
     const auto req = make_request(1, Side::Buy, 15000, 100);
-    const auto pv  = make_portfolio();
-    const auto v   = rm_.validate(req, pv);
+    const auto pv = make_portfolio();
+    const auto v = rm_.validate(req, pv);
 
     EXPECT_TRUE(v.approved);
     EXPECT_EQ(v.reject_reason, RiskRejectReason::None);
@@ -84,16 +83,14 @@ TEST_F(NullRiskManagerTest, ApprovesEveryOrder) {
 
 TEST_F(NullRiskManagerTest, NeverHalts) {
     EXPECT_FALSE(rm_.is_halted());
-    rm_.reset_halt();   // no-op; must not throw or crash
+    rm_.reset_halt();  // no-op; must not throw or crash
     EXPECT_FALSE(rm_.is_halted());
 }
 
 TEST_F(NullRiskManagerTest, ReturnsNoLimitFromCurrentLimits) {
     const auto lim = rm_.current_limits();
-    EXPECT_EQ(lim.max_order_quantity,
-              std::numeric_limits<core::Quantity>::max());
-    EXPECT_EQ(lim.max_gross_exposure,
-              std::numeric_limits<core::PriceTicks>::max());
+    EXPECT_EQ(lim.max_order_quantity, std::numeric_limits<core::Quantity>::max());
+    EXPECT_EQ(lim.max_gross_exposure, std::numeric_limits<core::PriceTicks>::max());
 }
 
 TEST_F(NullRiskManagerTest, UpdateLimitsIsNoOp) {
@@ -102,8 +99,7 @@ TEST_F(NullRiskManagerTest, UpdateLimitsIsNoOp) {
     rm_.update_limits(new_limits);
     // NullRiskManager ignores the update — still no-limit
     const auto lim = rm_.current_limits();
-    EXPECT_EQ(lim.max_order_quantity,
-              std::numeric_limits<core::Quantity>::max());
+    EXPECT_EQ(lim.max_order_quantity, std::numeric_limits<core::Quantity>::max());
 }
 
 TEST_F(NullRiskManagerTest, NameIsNonEmpty) {
@@ -132,8 +128,7 @@ TEST(RiskVerdictTest, SizeIsEightBytes) {
 
 TEST(RiskVerdictTest, EqualityOperator) {
     EXPECT_EQ(RiskVerdict::accept(), RiskVerdict::accept());
-    EXPECT_NE(RiskVerdict::accept(),
-              RiskVerdict::reject(RiskRejectReason::DrawdownHaltActive));
+    EXPECT_NE(RiskVerdict::accept(), RiskVerdict::reject(RiskRejectReason::DrawdownHaltActive));
 }
 
 // ---------------------------------------------------------------------------
@@ -141,10 +136,8 @@ TEST(RiskVerdictTest, EqualityOperator) {
 // ---------------------------------------------------------------------------
 TEST(RiskLimitsTest, NoLimitHasMaxValues) {
     const auto lim = RiskLimits::no_limit();
-    EXPECT_EQ(lim.max_order_quantity,
-              std::numeric_limits<core::Quantity>::max());
-    EXPECT_EQ(lim.daily_drawdown_limit,
-              std::numeric_limits<core::PriceTicks>::max());
+    EXPECT_EQ(lim.max_order_quantity, std::numeric_limits<core::Quantity>::max());
+    EXPECT_EQ(lim.daily_drawdown_limit, std::numeric_limits<core::PriceTicks>::max());
 }
 
 TEST(RiskLimitsTest, DefaultConstructedHasZeroLimits) {
@@ -165,7 +158,7 @@ TEST(RiskLimitsTest, EqualityOperator) {
 // ---------------------------------------------------------------------------
 TEST(PortfolioViewTest, SessionPnlIsSumOfRealizedAndUnrealized) {
     PortfolioView pv{};
-    pv.session_realized_pnl   = 500;
+    pv.session_realized_pnl = 500;
     pv.session_unrealized_pnl = -200;
     EXPECT_EQ(pv.session_pnl(), 300);
 }
@@ -188,7 +181,6 @@ TEST(PortfolioViewTest, SizeIsFortyBytes) {
 // ===========================================================================
 
 #ifdef QUANTENGINE_RISK_IMPL
-#include "quantengine/risk/StandardRiskManager.hpp"
 using TestedRiskManager = quantengine::risk::StandardRiskManager;
 #else
 // Stub: until implementation exists, redirect to NullRiskManager so the
@@ -215,37 +207,37 @@ protected:
 
 TEST_F(StandardRiskManagerTest, ApprovesBelowMaxOrderQuantity) {
     RiskLimits lim{};
-    lim.max_order_quantity    = 1000;
+    lim.max_order_quantity = 1000;
     lim.max_position_quantity = std::numeric_limits<Quantity>::max();
-    lim.max_order_notional    = std::numeric_limits<PriceTicks>::max();
-    lim.max_gross_exposure    = std::numeric_limits<PriceTicks>::max();
-    lim.daily_drawdown_limit  = std::numeric_limits<PriceTicks>::max();
+    lim.max_order_notional = std::numeric_limits<PriceTicks>::max();
+    lim.max_gross_exposure = std::numeric_limits<PriceTicks>::max();
+    lim.daily_drawdown_limit = std::numeric_limits<PriceTicks>::max();
     rm_.update_limits(lim);
 
     const auto req = make_request(1, Side::Buy, 10000, 999);
-    const auto v   = rm_.validate(req, make_portfolio());
+    const auto v = rm_.validate(req, make_portfolio());
     EXPECT_TRUE(v.approved);
     EXPECT_EQ(v.reject_reason, RiskRejectReason::None);
 }
 
 TEST_F(StandardRiskManagerTest, RejectsAtMaxOrderQuantity) {
     RiskLimits lim{};
-    lim.max_order_quantity    = 1000;
+    lim.max_order_quantity = 1000;
     lim.max_position_quantity = std::numeric_limits<Quantity>::max();
-    lim.max_order_notional    = std::numeric_limits<PriceTicks>::max();
-    lim.max_gross_exposure    = std::numeric_limits<PriceTicks>::max();
-    lim.daily_drawdown_limit  = std::numeric_limits<PriceTicks>::max();
+    lim.max_order_notional = std::numeric_limits<PriceTicks>::max();
+    lim.max_gross_exposure = std::numeric_limits<PriceTicks>::max();
+    lim.daily_drawdown_limit = std::numeric_limits<PriceTicks>::max();
     rm_.update_limits(lim);
 
     // Exactly at the limit: REJECTED (limit is exclusive upper bound)
-    const auto at  = make_request(2, Side::Buy, 10000, 1000);
-    const auto v1  = rm_.validate(at, make_portfolio());
+    const auto at = make_request(2, Side::Buy, 10000, 1000);
+    const auto v1 = rm_.validate(at, make_portfolio());
     EXPECT_FALSE(v1.approved);
     EXPECT_EQ(v1.reject_reason, RiskRejectReason::OrderTooLarge);
 
     // Above the limit
     const auto over = make_request(3, Side::Buy, 10000, 1001);
-    const auto v2   = rm_.validate(over, make_portfolio());
+    const auto v2 = rm_.validate(over, make_portfolio());
     EXPECT_FALSE(v2.approved);
     EXPECT_EQ(v2.reject_reason, RiskRejectReason::OrderTooLarge);
 }
@@ -253,15 +245,15 @@ TEST_F(StandardRiskManagerTest, RejectsAtMaxOrderQuantity) {
 TEST_F(StandardRiskManagerTest, MaxOrderQuantityCheckedBeforeNotional) {
     // qty breach must be reported even when notional would also breach
     RiskLimits lim{};
-    lim.max_order_quantity    = 100;
-    lim.max_order_notional    = 50000;   // would also breach at qty=100, price=1000
+    lim.max_order_quantity = 100;
+    lim.max_order_notional = 50000;  // would also breach at qty=100, price=1000
     lim.max_position_quantity = std::numeric_limits<Quantity>::max();
-    lim.max_gross_exposure    = std::numeric_limits<PriceTicks>::max();
-    lim.daily_drawdown_limit  = std::numeric_limits<PriceTicks>::max();
+    lim.max_gross_exposure = std::numeric_limits<PriceTicks>::max();
+    lim.daily_drawdown_limit = std::numeric_limits<PriceTicks>::max();
     rm_.update_limits(lim);
 
     const auto req = make_request(1, Side::Buy, 1000, 200);  // qty=200, notional=200000
-    const auto v   = rm_.validate(req, make_portfolio());
+    const auto v = rm_.validate(req, make_portfolio());
     EXPECT_FALSE(v.approved);
     // qty check must fire first (limit hierarchy order)
     EXPECT_EQ(v.reject_reason, RiskRejectReason::OrderTooLarge);
@@ -271,31 +263,31 @@ TEST_F(StandardRiskManagerTest, MaxOrderQuantityCheckedBeforeNotional) {
 
 TEST_F(StandardRiskManagerTest, ApprovesBelowMaxNotional) {
     RiskLimits lim{};
-    lim.max_order_quantity    = std::numeric_limits<Quantity>::max();
-    lim.max_order_notional    = 1000000;  // 1M ticks
+    lim.max_order_quantity = std::numeric_limits<Quantity>::max();
+    lim.max_order_notional = 1000000;  // 1M ticks
     lim.max_position_quantity = std::numeric_limits<Quantity>::max();
-    lim.max_gross_exposure    = std::numeric_limits<PriceTicks>::max();
-    lim.daily_drawdown_limit  = std::numeric_limits<PriceTicks>::max();
+    lim.max_gross_exposure = std::numeric_limits<PriceTicks>::max();
+    lim.daily_drawdown_limit = std::numeric_limits<PriceTicks>::max();
     rm_.update_limits(lim);
 
     // price=10000 * qty=99 = 990000 < 1000000: approve
     const auto req = make_request(1, Side::Buy, 10000, 99);
-    const auto v   = rm_.validate(req, make_portfolio());
+    const auto v = rm_.validate(req, make_portfolio());
     EXPECT_TRUE(v.approved);
 }
 
 TEST_F(StandardRiskManagerTest, RejectsAtMaxNotional) {
     RiskLimits lim{};
-    lim.max_order_quantity    = std::numeric_limits<Quantity>::max();
-    lim.max_order_notional    = 1000000;
+    lim.max_order_quantity = std::numeric_limits<Quantity>::max();
+    lim.max_order_notional = 1000000;
     lim.max_position_quantity = std::numeric_limits<Quantity>::max();
-    lim.max_gross_exposure    = std::numeric_limits<PriceTicks>::max();
-    lim.daily_drawdown_limit  = std::numeric_limits<PriceTicks>::max();
+    lim.max_gross_exposure = std::numeric_limits<PriceTicks>::max();
+    lim.daily_drawdown_limit = std::numeric_limits<PriceTicks>::max();
     rm_.update_limits(lim);
 
     // price=10000 * qty=100 = 1000000: at or above limit -> reject
     const auto req = make_request(1, Side::Buy, 10000, 100);
-    const auto v   = rm_.validate(req, make_portfolio());
+    const auto v = rm_.validate(req, make_portfolio());
     EXPECT_FALSE(v.approved);
     EXPECT_EQ(v.reject_reason, RiskRejectReason::NotionalTooLarge);
 }
@@ -304,33 +296,33 @@ TEST_F(StandardRiskManagerTest, RejectsAtMaxNotional) {
 
 TEST_F(StandardRiskManagerTest, ApprovesWhenPositionBelowLimit) {
     RiskLimits lim{};
-    lim.max_order_quantity    = std::numeric_limits<Quantity>::max();
-    lim.max_order_notional    = std::numeric_limits<PriceTicks>::max();
+    lim.max_order_quantity = std::numeric_limits<Quantity>::max();
+    lim.max_order_notional = std::numeric_limits<PriceTicks>::max();
     lim.max_position_quantity = 500;
-    lim.max_gross_exposure    = std::numeric_limits<PriceTicks>::max();
-    lim.daily_drawdown_limit  = std::numeric_limits<PriceTicks>::max();
+    lim.max_gross_exposure = std::numeric_limits<PriceTicks>::max();
+    lim.daily_drawdown_limit = std::numeric_limits<PriceTicks>::max();
     rm_.update_limits(lim);
 
     // Current position 400, order qty 50: result 450 < 500 -> approve
-    const auto pv  = make_portfolio(0, 400);
+    const auto pv = make_portfolio(0, 400);
     const auto req = make_request(1, Side::Buy, 10000, 50);
-    const auto v   = rm_.validate(req, pv);
+    const auto v = rm_.validate(req, pv);
     EXPECT_TRUE(v.approved);
 }
 
 TEST_F(StandardRiskManagerTest, RejectsWhenOrderWouldBreachPositionLimit) {
     RiskLimits lim{};
-    lim.max_order_quantity    = std::numeric_limits<Quantity>::max();
-    lim.max_order_notional    = std::numeric_limits<PriceTicks>::max();
+    lim.max_order_quantity = std::numeric_limits<Quantity>::max();
+    lim.max_order_notional = std::numeric_limits<PriceTicks>::max();
     lim.max_position_quantity = 500;
-    lim.max_gross_exposure    = std::numeric_limits<PriceTicks>::max();
-    lim.daily_drawdown_limit  = std::numeric_limits<PriceTicks>::max();
+    lim.max_gross_exposure = std::numeric_limits<PriceTicks>::max();
+    lim.daily_drawdown_limit = std::numeric_limits<PriceTicks>::max();
     rm_.update_limits(lim);
 
     // Current position 400, order qty 150: result 550 >= 500 -> reject
-    const auto pv  = make_portfolio(0, 400);
+    const auto pv = make_portfolio(0, 400);
     const auto req = make_request(1, Side::Buy, 10000, 150);
-    const auto v   = rm_.validate(req, pv);
+    const auto v = rm_.validate(req, pv);
     EXPECT_FALSE(v.approved);
     EXPECT_EQ(v.reject_reason, RiskRejectReason::PositionLimitBreached);
 }
@@ -341,18 +333,18 @@ TEST_F(StandardRiskManagerTest, PositionCheckAppliesSymmetricallyToSells) {
     // The test verifies that a sell order which would deepen a short position
     // beyond max_position_quantity is also rejected.
     RiskLimits lim{};
-    lim.max_order_quantity    = std::numeric_limits<Quantity>::max();
-    lim.max_order_notional    = std::numeric_limits<PriceTicks>::max();
+    lim.max_order_quantity = std::numeric_limits<Quantity>::max();
+    lim.max_order_notional = std::numeric_limits<PriceTicks>::max();
     lim.max_position_quantity = 500;
-    lim.max_gross_exposure    = std::numeric_limits<PriceTicks>::max();
-    lim.daily_drawdown_limit  = std::numeric_limits<PriceTicks>::max();
+    lim.max_gross_exposure = std::numeric_limits<PriceTicks>::max();
+    lim.daily_drawdown_limit = std::numeric_limits<PriceTicks>::max();
     rm_.update_limits(lim);
 
     // Short 400, adding sell 150 -> short 550 -> breach
     // Implementation must interpret net_position sign for sells.
-    const auto pv  = make_portfolio(0, static_cast<Quantity>(-400LL));
+    const auto pv = make_portfolio(0, static_cast<Quantity>(-400LL));
     const auto req = make_request(1, Side::Sell, 10000, 150);
-    const auto v   = rm_.validate(req, pv);
+    const auto v = rm_.validate(req, pv);
     EXPECT_FALSE(v.approved);
     EXPECT_EQ(v.reject_reason, RiskRejectReason::PositionLimitBreached);
 }
@@ -364,17 +356,17 @@ TEST_F(StandardRiskManagerTest, HaltsWhenDrawdownLimitBreached) {
     // The implementation must check session_pnl() against -daily_drawdown_limit
     // and engage the halt inside validate() or via a separate trigger method.
     RiskLimits lim{};
-    lim.max_order_quantity    = std::numeric_limits<Quantity>::max();
-    lim.max_order_notional    = std::numeric_limits<PriceTicks>::max();
+    lim.max_order_quantity = std::numeric_limits<Quantity>::max();
+    lim.max_order_notional = std::numeric_limits<PriceTicks>::max();
     lim.max_position_quantity = std::numeric_limits<Quantity>::max();
-    lim.max_gross_exposure    = std::numeric_limits<PriceTicks>::max();
-    lim.daily_drawdown_limit  = 10000;   // halt when session_pnl <= -10000
+    lim.max_gross_exposure = std::numeric_limits<PriceTicks>::max();
+    lim.daily_drawdown_limit = 10000;  // halt when session_pnl <= -10000
     rm_.update_limits(lim);
 
     // Portfolio is in drawdown
-    const auto pv  = make_portfolio(-10000);  // session_realized_pnl = -10000
+    const auto pv = make_portfolio(-10000);  // session_realized_pnl = -10000
     const auto req = make_request(1, Side::Buy, 10000, 10);
-    const auto v   = rm_.validate(req, pv);
+    const auto v = rm_.validate(req, pv);
 
     EXPECT_FALSE(v.approved);
     EXPECT_EQ(v.reject_reason, RiskRejectReason::DrawdownHaltActive);
@@ -384,11 +376,11 @@ TEST_F(StandardRiskManagerTest, HaltsWhenDrawdownLimitBreached) {
 
 TEST_F(StandardRiskManagerTest, HaltIsStickyAfterDrawdown) {
     RiskLimits lim{};
-    lim.max_order_quantity    = std::numeric_limits<Quantity>::max();
-    lim.max_order_notional    = std::numeric_limits<PriceTicks>::max();
+    lim.max_order_quantity = std::numeric_limits<Quantity>::max();
+    lim.max_order_notional = std::numeric_limits<PriceTicks>::max();
     lim.max_position_quantity = std::numeric_limits<Quantity>::max();
-    lim.max_gross_exposure    = std::numeric_limits<PriceTicks>::max();
-    lim.daily_drawdown_limit  = 10000;
+    lim.max_gross_exposure = std::numeric_limits<PriceTicks>::max();
+    lim.daily_drawdown_limit = 10000;
     rm_.update_limits(lim);
 
     // Trigger halt
@@ -401,7 +393,7 @@ TEST_F(StandardRiskManagerTest, HaltIsStickyAfterDrawdown) {
     // Even if P&L recovers, halt must remain until explicitly reset
     {
         const auto pv = make_portfolio(5000);  // now profitable
-        const auto v  = rm_.validate(make_request(2, Side::Buy, 10000, 1), pv);
+        const auto v = rm_.validate(make_request(2, Side::Buy, 10000, 1), pv);
         EXPECT_FALSE(v.approved);
         EXPECT_EQ(v.reject_reason, RiskRejectReason::DrawdownHaltActive);
     }
@@ -409,11 +401,11 @@ TEST_F(StandardRiskManagerTest, HaltIsStickyAfterDrawdown) {
 
 TEST_F(StandardRiskManagerTest, ResetHaltAllowsTrading) {
     RiskLimits lim{};
-    lim.max_order_quantity    = std::numeric_limits<Quantity>::max();
-    lim.max_order_notional    = std::numeric_limits<PriceTicks>::max();
+    lim.max_order_quantity = std::numeric_limits<Quantity>::max();
+    lim.max_order_notional = std::numeric_limits<PriceTicks>::max();
     lim.max_position_quantity = std::numeric_limits<Quantity>::max();
-    lim.max_gross_exposure    = std::numeric_limits<PriceTicks>::max();
-    lim.daily_drawdown_limit  = 10000;
+    lim.max_gross_exposure = std::numeric_limits<PriceTicks>::max();
+    lim.daily_drawdown_limit = 10000;
     rm_.update_limits(lim);
 
     // Trigger halt
@@ -431,15 +423,15 @@ TEST_F(StandardRiskManagerTest, ResetHaltAllowsTrading) {
 
 TEST_F(StandardRiskManagerTest, ApprovesWhenDrawdownBelowLimit) {
     RiskLimits lim{};
-    lim.max_order_quantity    = std::numeric_limits<Quantity>::max();
-    lim.max_order_notional    = std::numeric_limits<PriceTicks>::max();
+    lim.max_order_quantity = std::numeric_limits<Quantity>::max();
+    lim.max_order_notional = std::numeric_limits<PriceTicks>::max();
     lim.max_position_quantity = std::numeric_limits<Quantity>::max();
-    lim.max_gross_exposure    = std::numeric_limits<PriceTicks>::max();
-    lim.daily_drawdown_limit  = 10000;
+    lim.max_gross_exposure = std::numeric_limits<PriceTicks>::max();
+    lim.daily_drawdown_limit = 10000;
     rm_.update_limits(lim);
 
     const auto pv = make_portfolio(-9999);  // one tick below threshold
-    const auto v  = rm_.validate(make_request(1, Side::Buy, 10000, 1), pv);
+    const auto v = rm_.validate(make_request(1, Side::Buy, 10000, 1), pv);
     EXPECT_TRUE(v.approved);
     EXPECT_FALSE(rm_.is_halted());
 }
@@ -449,16 +441,16 @@ TEST_F(StandardRiskManagerTest, ApprovesWhenDrawdownBelowLimit) {
 TEST_F(StandardRiskManagerTest, LimitHierarchyQtyBeforeNotionalBeforePosition) {
     RiskLimits lim{};
     // Set all limits tight so multiple would fire
-    lim.max_order_quantity    = 10;
-    lim.max_order_notional    = 100;   // 10 * 20 = 200 > 100
-    lim.max_position_quantity = 5;     // 0 + 10 > 5
-    lim.max_gross_exposure    = std::numeric_limits<PriceTicks>::max();
-    lim.daily_drawdown_limit  = std::numeric_limits<PriceTicks>::max();
+    lim.max_order_quantity = 10;
+    lim.max_order_notional = 100;   // 10 * 20 = 200 > 100
+    lim.max_position_quantity = 5;  // 0 + 10 > 5
+    lim.max_gross_exposure = std::numeric_limits<PriceTicks>::max();
+    lim.daily_drawdown_limit = std::numeric_limits<PriceTicks>::max();
     rm_.update_limits(lim);
 
     // qty=10 breaches max_order_quantity (10 is not < 10); qty fires first
     const auto req = make_request(1, Side::Buy, 20, 10);
-    const auto v   = rm_.validate(req, make_portfolio());
+    const auto v = rm_.validate(req, make_portfolio());
     EXPECT_FALSE(v.approved);
     EXPECT_EQ(v.reject_reason, RiskRejectReason::OrderTooLarge);
 }

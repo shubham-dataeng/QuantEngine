@@ -1,10 +1,10 @@
+#include <gtest/gtest.h>
+
 #include <cstddef>
 #include <cstdlib>
 #include <new>
 #include <string_view>
 #include <vector>
-
-#include <gtest/gtest.h>
 
 #include "quantengine/execution/IExecutionGateway.hpp"
 #include "quantengine/market/IMarketDataFeed.hpp"
@@ -46,17 +46,19 @@ namespace quantengine::test {
 // ---------------------------------------------------------------------------
 namespace alloc_tracker {
 
-thread_local std::size_t g_alloc_count   = 0;
+thread_local std::size_t g_alloc_count = 0;
 thread_local std::size_t g_dealloc_count = 0;
-thread_local bool        g_tracking      = false;
+thread_local bool g_tracking = false;
 
 struct Guard {
-    Guard()  { g_alloc_count = 0; g_dealloc_count = 0; g_tracking = true; }
+    Guard() {
+        g_alloc_count = 0;
+        g_dealloc_count = 0;
+        g_tracking = true;
+    }
     ~Guard() { g_tracking = false; }
 
-    [[nodiscard]] auto allocations() const noexcept -> std::size_t {
-        return g_alloc_count;
-    }
+    [[nodiscard]] auto allocations() const noexcept -> std::size_t { return g_alloc_count; }
 };
 
 }  // namespace alloc_tracker
@@ -69,8 +71,35 @@ void* operator new(std::size_t size) {
         ++quantengine::test::alloc_tracker::g_alloc_count;
     }
     void* ptr = std::malloc(size);
-    if (ptr == nullptr) { throw std::bad_alloc{}; }
+    if (ptr == nullptr) {
+        throw std::bad_alloc{};
+    }
     return ptr;
+}
+
+void* operator new(std::size_t size, const std::nothrow_t&) noexcept {
+    if (quantengine::test::alloc_tracker::g_tracking) {
+        ++quantengine::test::alloc_tracker::g_alloc_count;
+    }
+    return std::malloc(size);
+}
+
+void* operator new[](std::size_t size) {
+    if (quantengine::test::alloc_tracker::g_tracking) {
+        ++quantengine::test::alloc_tracker::g_alloc_count;
+    }
+    void* ptr = std::malloc(size);
+    if (ptr == nullptr) {
+        throw std::bad_alloc{};
+    }
+    return ptr;
+}
+
+void* operator new[](std::size_t size, const std::nothrow_t&) noexcept {
+    if (quantengine::test::alloc_tracker::g_tracking) {
+        ++quantengine::test::alloc_tracker::g_alloc_count;
+    }
+    return std::malloc(size);
 }
 
 void operator delete(void* ptr) noexcept {
@@ -81,6 +110,34 @@ void operator delete(void* ptr) noexcept {
 }
 
 void operator delete(void* ptr, std::size_t /*size*/) noexcept {
+    if (quantengine::test::alloc_tracker::g_tracking) {
+        ++quantengine::test::alloc_tracker::g_dealloc_count;
+    }
+    std::free(ptr);
+}
+
+void operator delete[](void* ptr) noexcept {
+    if (quantengine::test::alloc_tracker::g_tracking) {
+        ++quantengine::test::alloc_tracker::g_dealloc_count;
+    }
+    std::free(ptr);
+}
+
+void operator delete[](void* ptr, std::size_t /*size*/) noexcept {
+    if (quantengine::test::alloc_tracker::g_tracking) {
+        ++quantengine::test::alloc_tracker::g_dealloc_count;
+    }
+    std::free(ptr);
+}
+
+void operator delete(void* ptr, const std::nothrow_t&) noexcept {
+    if (quantengine::test::alloc_tracker::g_tracking) {
+        ++quantengine::test::alloc_tracker::g_dealloc_count;
+    }
+    std::free(ptr);
+}
+
+void operator delete[](void* ptr, const std::nothrow_t&) noexcept {
     if (quantengine::test::alloc_tracker::g_tracking) {
         ++quantengine::test::alloc_tracker::g_dealloc_count;
     }
@@ -106,30 +163,28 @@ public:
             received_[received_count_++] = event;
         }
     }
-    void on_connected()                   noexcept override { connected_ = true; }
-    void on_disconnected()                noexcept override { connected_ = false; }
+    void on_connected() noexcept override { connected_ = true; }
+    void on_disconnected() noexcept override { connected_ = false; }
     void on_error(std::string_view /*r*/) noexcept override { ++error_count_; }
 
-    [[nodiscard]] auto received_count() const noexcept -> std::size_t {
-        return received_count_;
-    }
+    [[nodiscard]] auto received_count() const noexcept -> std::size_t { return received_count_; }
     [[nodiscard]] auto last_event() const noexcept -> const MarketEvent& {
         return received_[received_count_ - 1];
     }
     [[nodiscard]] auto is_connected() const noexcept -> bool { return connected_; }
-    [[nodiscard]] auto error_count()  const noexcept -> std::size_t { return error_count_; }
+    [[nodiscard]] auto error_count() const noexcept -> std::size_t { return error_count_; }
 
     void reset() noexcept {
         received_count_ = 0;
-        error_count_    = 0;
-        connected_      = false;
+        error_count_ = 0;
+        connected_ = false;
     }
 
 private:
     MarketEvent received_[kMaxRecorded]{};  // fixed array, stack/BSS allocated
     std::size_t received_count_{0};
     std::size_t error_count_{0};
-    bool        connected_{false};
+    bool connected_{false};
 };
 
 // Verify MockEventHandler satisfies the IEventHandler concept.
@@ -144,64 +199,79 @@ static_assert(IEventHandler<MockEventHandler>);
 // ---------------------------------------------------------------------------
 class MockFeed final : public IMarketDataFeed {
 public:
-    [[nodiscard]] auto subscribe(EventHandlerBase& handler,
-                                  std::string_view /*symbol*/,
-                                  SubscriptionMask mask) noexcept -> FeedStatus override {
-        handler_  = &handler;
-        mask_     = mask;
+    [[nodiscard]] auto subscribe(EventHandlerBase& handler, std::string_view /*symbol*/,
+                                 SubscriptionMask mask) noexcept -> FeedStatus override {
+        handler_ = &handler;
+        mask_ = mask;
         return FeedStatus::Ok;
     }
 
     [[nodiscard]] auto unsubscribe(EventHandlerBase& /*handler*/,
-                                    std::string_view /*symbol*/) noexcept -> FeedStatus override {
+                                   std::string_view /*symbol*/) noexcept -> FeedStatus override {
         handler_ = nullptr;
         return FeedStatus::Ok;
     }
 
     [[nodiscard]] auto start() noexcept -> FeedStatus override {
-        if (running_) { return FeedStatus::AlreadyRunning; }
+        if (running_) {
+            return FeedStatus::AlreadyRunning;
+        }
         running_ = true;
-        if (handler_ != nullptr) { handler_->on_connected(); }
+        if (handler_ != nullptr) {
+            handler_->on_connected();
+        }
         return FeedStatus::Ok;
     }
 
     [[nodiscard]] auto stop() noexcept -> FeedStatus override {
-        if (!running_) { return FeedStatus::NotRunning; }
+        if (!running_) {
+            return FeedStatus::NotRunning;
+        }
         running_ = false;
-        if (handler_ != nullptr) { handler_->on_disconnected(); }
+        if (handler_ != nullptr) {
+            handler_->on_disconnected();
+        }
         return FeedStatus::Ok;
     }
 
-    [[nodiscard]] auto is_running()  const noexcept -> bool            override { return running_; }
-    [[nodiscard]] auto feed_name()   const noexcept -> std::string_view override { return "mock"; }
+    [[nodiscard]] auto is_running() const noexcept -> bool override { return running_; }
+    [[nodiscard]] auto feed_name() const noexcept -> std::string_view override { return "mock"; }
 
     // Synchronously push one event to the registered handler.
     // Filters by SubscriptionMask before calling on_event().
     // TODO: real implementations will call this from their socket/parse loop.
     void dispatch(const MarketEvent& ev) noexcept {
-        if (handler_ == nullptr || !running_) { return; }
+        if (handler_ == nullptr || !running_) {
+            return;
+        }
 
         // Filter check — zero allocation, pure bit-ops
         const auto kind = event_kind(ev);
         bool pass = false;
         switch (kind) {
             case MarketEventKind::Quote:
-                pass = has_flag(mask_, SubscriptionMask::Quotes);   break;
+                pass = has_flag(mask_, SubscriptionMask::Quotes);
+                break;
             case MarketEventKind::Tick:
-                pass = has_flag(mask_, SubscriptionMask::Ticks);    break;
+                pass = has_flag(mask_, SubscriptionMask::Ticks);
+                break;
             case MarketEventKind::MarketTrade:
-                pass = has_flag(mask_, SubscriptionMask::Trades);   break;
+                pass = has_flag(mask_, SubscriptionMask::Trades);
+                break;
             case MarketEventKind::OrderBookSnapshot:
-                pass = has_flag(mask_, SubscriptionMask::Snapshots); break;
+                pass = has_flag(mask_, SubscriptionMask::Snapshots);
+                break;
         }
 
-        if (pass) { handler_->on_event(ev); }
+        if (pass) {
+            handler_->on_event(ev);
+        }
     }
 
 private:
     EventHandlerBase* handler_{nullptr};
-    SubscriptionMask  mask_{SubscriptionMask::All};
-    bool              running_{false};
+    SubscriptionMask mask_{SubscriptionMask::All};
+    bool running_{false};
 };
 
 // ---------------------------------------------------------------------------
@@ -213,7 +283,7 @@ class MockGateway final : public IExecutionGateway {
 public:
     [[nodiscard]] auto connect(IFillHandler& handler) noexcept -> bool override {
         fill_handler_ = &handler;
-        connected_    = true;
+        connected_ = true;
         handler.on_gateway_connected();
         return true;
     }
@@ -236,41 +306,36 @@ public:
         // Simulate synchronous fill (SimGateway semantics)
         if (fill_handler_ != nullptr) {
             core::ExecutionReport rpt{};
-            rpt.order_id         = req.client_order_id;
-            rpt.status           = core::OrderStatus::Resting;
-            rpt.reject_reason    = core::RejectReason::None;
+            rpt.order_id = req.client_order_id;
+            rpt.status = core::OrderStatus::Resting;
+            rpt.reject_reason = core::RejectReason::None;
             rpt.remaining_quantity = req.quantity;
-            rpt.filled_quantity  = 0;
-            rpt.price            = req.price;
-            rpt.side             = req.side;
+            rpt.filled_quantity = 0;
+            rpt.price = req.price;
+            rpt.side = req.side;
             fill_handler_->on_fill(rpt);
         }
-        return OrderAck{.client_order_id = req.client_order_id,
-                        .status = GatewayStatus::Accepted};
+        return OrderAck{.client_order_id = req.client_order_id, .status = GatewayStatus::Accepted};
     }
 
     [[nodiscard]] auto cancel_order(const CancelRequest& req) noexcept -> OrderAck override {
-        return OrderAck{.client_order_id = req.client_order_id,
-                        .status = GatewayStatus::Accepted};
+        return OrderAck{.client_order_id = req.client_order_id, .status = GatewayStatus::Accepted};
     }
 
     [[nodiscard]] auto modify_order(const ModifyRequest& req) noexcept -> OrderAck override {
-        return OrderAck{.client_order_id = req.client_order_id,
-                        .status = GatewayStatus::Accepted};
+        return OrderAck{.client_order_id = req.client_order_id, .status = GatewayStatus::Accepted};
     }
 
     [[nodiscard]] auto gateway_name() const noexcept -> std::string_view override {
         return "mock-gateway";
     }
 
-    [[nodiscard]] auto submitted_count() const noexcept -> std::size_t {
-        return submitted_count_;
-    }
+    [[nodiscard]] auto submitted_count() const noexcept -> std::size_t { return submitted_count_; }
 
 private:
     IFillHandler* fill_handler_{nullptr};
-    bool          connected_{false};
-    std::size_t   submitted_count_{0};
+    bool connected_{false};
+    std::size_t submitted_count_{0};
 };
 
 // ---------------------------------------------------------------------------
@@ -281,22 +346,27 @@ public:
     static constexpr std::size_t kMaxFills = 64;
 
     void on_fill(const core::ExecutionReport& rpt) noexcept override {
-        if (fill_count_ < kMaxFills) { fills_[fill_count_++] = rpt; }
+        if (fill_count_ < kMaxFills) {
+            fills_[fill_count_++] = rpt;
+        }
     }
-    void on_gateway_connected()                  noexcept override { connected_ = true; }
+    void on_gateway_connected() noexcept override { connected_ = true; }
     void on_gateway_disconnected(std::string_view) noexcept override { connected_ = false; }
 
-    [[nodiscard]] auto fill_count()    const noexcept -> std::size_t { return fill_count_; }
-    [[nodiscard]] auto last_fill()     const noexcept -> const core::ExecutionReport& {
+    [[nodiscard]] auto fill_count() const noexcept -> std::size_t { return fill_count_; }
+    [[nodiscard]] auto last_fill() const noexcept -> const core::ExecutionReport& {
         return fills_[fill_count_ - 1];
     }
-    [[nodiscard]] auto is_connected()  const noexcept -> bool { return connected_; }
-    void reset() noexcept { fill_count_ = 0; connected_ = false; }
+    [[nodiscard]] auto is_connected() const noexcept -> bool { return connected_; }
+    void reset() noexcept {
+        fill_count_ = 0;
+        connected_ = false;
+    }
 
 private:
     core::ExecutionReport fills_[kMaxFills]{};
-    std::size_t           fill_count_{0};
-    bool                  connected_{false};
+    std::size_t fill_count_{0};
+    bool connected_{false};
 };
 
 // ===========================================================================
@@ -305,11 +375,11 @@ private:
 
 class EventRoutingTest : public ::testing::Test {
 protected:
-    MockFeed          feed_;
-    MockEventHandler  handler_;
-    MockGateway       gateway_;
-    MockFillHandler   fill_handler_;
-    NullRiskManager   risk_;
+    MockFeed feed_;
+    MockEventHandler handler_;
+    MockGateway gateway_;
+    MockFillHandler fill_handler_;
+    NullRiskManager risk_;
 
     void SetUp() override {
         // Wire everything up before each test
@@ -361,7 +431,7 @@ TEST_F(EventRoutingTest, QuoteEventReachesHandler) {
     Quote q{};
     q.bid_price = 15000;
     q.ask_price = 15005;
-    q.symbol    = make_symbol("AAPL");
+    q.symbol = make_symbol("AAPL");
 
     feed_.dispatch(MarketEvent{q});
 
@@ -373,9 +443,9 @@ TEST_F(EventRoutingTest, QuoteEventReachesHandler) {
 
 TEST_F(EventRoutingTest, TickEventReachesHandler) {
     Tick t{};
-    t.price    = 15002;
+    t.price = 15002;
     t.quantity = 100;
-    t.symbol   = make_symbol("AAPL");
+    t.symbol = make_symbol("AAPL");
 
     feed_.dispatch(MarketEvent{t});
 
@@ -385,11 +455,11 @@ TEST_F(EventRoutingTest, TickEventReachesHandler) {
 
 TEST_F(EventRoutingTest, SnapshotEventReachesHandler) {
     OrderBookSnapshot snap{};
-    snap.symbol    = make_symbol("AAPL");
+    snap.symbol = make_symbol("AAPL");
     snap.bid_count = 1;
-    snap.bids[0]   = PriceLevel{15000, 200, 1, 0};
+    snap.bids[0] = PriceLevel{15000, 200, 1, 0};
     snap.ask_count = 1;
-    snap.asks[0]   = PriceLevel{15005, 150, 1, 0};
+    snap.asks[0] = PriceLevel{15005, 150, 1, 0};
 
     feed_.dispatch(MarketEvent{snap});
 
@@ -440,7 +510,7 @@ TEST_F(EventRoutingTest, DispatchQuoteDoesNotAllocate) {
     Quote q{};
     q.bid_price = 15000;
     q.ask_price = 15005;
-    q.symbol    = make_symbol("AAPL");
+    q.symbol = make_symbol("AAPL");
     const MarketEvent ev{q};
 
     // Warm up: first dispatch may prime internal state
@@ -448,9 +518,8 @@ TEST_F(EventRoutingTest, DispatchQuoteDoesNotAllocate) {
     handler_.reset();
 
     alloc_tracker::Guard g;
-    feed_.dispatch(ev);   // HOT PATH
-    EXPECT_EQ(g.allocations(), 0u)
-        << "dispatch() must be zero-allocation on the hot path";
+    feed_.dispatch(ev);  // HOT PATH
+    EXPECT_EQ(g.allocations(), 0u) << "dispatch() must be zero-allocation on the hot path";
 }
 
 TEST_F(EventRoutingTest, DispatchSnapshotDoesNotAllocate) {
@@ -464,8 +533,7 @@ TEST_F(EventRoutingTest, DispatchSnapshotDoesNotAllocate) {
 
     alloc_tracker::Guard g;
     feed_.dispatch(ev);  // HOT PATH
-    EXPECT_EQ(g.allocations(), 0u)
-        << "OrderBookSnapshot dispatch must be zero-allocation";
+    EXPECT_EQ(g.allocations(), 0u) << "OrderBookSnapshot dispatch must be zero-allocation";
 }
 
 TEST_F(EventRoutingTest, BurstOf1000EventsDoesNotAllocate) {
@@ -479,8 +547,7 @@ TEST_F(EventRoutingTest, BurstOf1000EventsDoesNotAllocate) {
     for (int i = 0; i < 1000; ++i) {
         feed_.dispatch(ev);
     }
-    EXPECT_EQ(g.allocations(), 0u)
-        << "1000 dispatches must produce zero heap allocations";
+    EXPECT_EQ(g.allocations(), 0u) << "1000 dispatches must produce zero heap allocations";
     EXPECT_EQ(handler_.received_count(), MockEventHandler::kMaxRecorded);
 }
 
@@ -489,12 +556,12 @@ TEST_F(EventRoutingTest, BurstOf1000EventsDoesNotAllocate) {
 TEST_F(EventRoutingTest, ValidOrderPassesRiskAndReachesGateway) {
     auto req = OrderRequest{};
     req.client_order_id = 1;
-    req.side            = core::Side::Buy;
-    req.price           = 15000;
-    req.quantity        = 100;
-    req.symbol          = make_symbol("AAPL");
+    req.side = core::Side::Buy;
+    req.price = 15000;
+    req.quantity = 100;
+    req.symbol = make_symbol("AAPL");
 
-    const auto pv      = PortfolioView{};
+    const auto pv = PortfolioView{};
     const auto verdict = risk_.validate(req, pv);
     ASSERT_TRUE(verdict.approved);
 
@@ -515,32 +582,30 @@ TEST_F(EventRoutingTest, GatewayRejectsOrderWhenNotConnected) {
 TEST_F(EventRoutingTest, SubmitOrderDoesNotAllocate) {
     auto req = OrderRequest{};
     req.client_order_id = 99;
-    req.side            = core::Side::Sell;
-    req.price           = 15000;
-    req.quantity        = 50;
+    req.side = core::Side::Sell;
+    req.price = 15000;
+    req.quantity = 50;
 
     // Warm up
     (void)gateway_.submit_order(req);
     fill_handler_.reset();
 
     alloc_tracker::Guard g;
-    const auto ack = gateway_.submit_order(req);   // HOT PATH
-    EXPECT_EQ(g.allocations(), 0u)
-        << "submit_order() must be zero-allocation on the hot path";
+    const auto ack = gateway_.submit_order(req);  // HOT PATH
+    EXPECT_EQ(g.allocations(), 0u) << "submit_order() must be zero-allocation on the hot path";
     EXPECT_EQ(ack.status, GatewayStatus::Accepted);
 }
 
 TEST_F(EventRoutingTest, RiskValidateDoesNotAllocate) {
     const auto req = OrderRequest{.client_order_id = 1, .quantity = 100};
-    const auto pv  = PortfolioView{};
+    const auto pv = PortfolioView{};
 
     // Warm up
     (void)risk_.validate(req, pv);
 
     alloc_tracker::Guard g;
-    const auto verdict = risk_.validate(req, pv);   // HOT PATH
-    EXPECT_EQ(g.allocations(), 0u)
-        << "validate() must be zero-allocation on the hot path";
+    const auto verdict = risk_.validate(req, pv);  // HOT PATH
+    EXPECT_EQ(g.allocations(), 0u) << "validate() must be zero-allocation on the hot path";
     EXPECT_TRUE(verdict.approved);
 }
 
@@ -556,7 +621,7 @@ TEST_F(EventRoutingTest, EventSymbolHelperExtractsSymbol) {
 TEST_F(EventRoutingTest, MakeSymbolTruncatesAtMaxLen) {
     // 16-char symbol (15 chars + null): "ABCDEFGHIJKLMNO"
     const auto sym = make_symbol("ABCDEFGHIJKLMNOPQ");  // 17 chars, truncated to 15
-    const auto sv  = symbol_view(sym);
+    const auto sv = symbol_view(sym);
     EXPECT_EQ(sv.size(), kMaxSymbolLen - 1);
 }
 
