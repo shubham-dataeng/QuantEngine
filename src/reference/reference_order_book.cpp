@@ -325,6 +325,28 @@ std::vector<LevelInfo> ReferenceOrderBook::get_asks(std::size_t max_levels) cons
     return levels;
 }
 
+std::vector<core::Order> ReferenceOrderBook::get_all_bid_orders() const {
+    std::vector<core::Order> orders;
+    orders.reserve(total_orders());
+    for (const auto& [price, queue] : bids_) {
+        for (const auto& ord : queue) {
+            orders.push_back(ord);
+        }
+    }
+    return orders;
+}
+
+std::vector<core::Order> ReferenceOrderBook::get_all_ask_orders() const {
+    std::vector<core::Order> orders;
+    orders.reserve(total_orders());
+    for (const auto& [price, queue] : asks_) {
+        for (const auto& ord : queue) {
+            orders.push_back(ord);
+        }
+    }
+    return orders;
+}
+
 bool ReferenceOrderBook::check_invariants() const noexcept {
     if (order_map_.size() != total_orders()) {
         return false;

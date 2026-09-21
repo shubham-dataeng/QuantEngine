@@ -68,6 +68,9 @@ public:
     [[nodiscard]] std::vector<LevelInfo> get_bids(std::size_t max_levels = 0) const;
     [[nodiscard]] std::vector<LevelInfo> get_asks(std::size_t max_levels = 0) const;
 
+    [[nodiscard]] std::vector<core::Order> get_all_bid_orders() const;
+    [[nodiscard]] std::vector<core::Order> get_all_ask_orders() const;
+
     // Invariant Verification
     [[nodiscard]] bool check_invariants() const noexcept;
 

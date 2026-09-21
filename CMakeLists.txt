@@ -53,11 +53,16 @@ add_library(quantengine_core
     src/engine/canonical_state.cpp
     src/engine/invariants.cpp
     src/engine/replay.cpp
-    # Platform layer — M4, M6, M7, M8 implementations
+    # Platform layer — M4 through M14 implementations
     src/execution/SimGateway.cpp
+    src/execution/OrderStateMachine.cpp
     src/risk/StandardRiskManager.cpp
     src/portfolio/Portfolio.cpp
     src/strategy/StrategyRunner.cpp
+    src/journal/BinaryJournal.cpp
+    src/journal/AsyncJournal.cpp
+    src/broker/AlpacaWsFeed.cpp
+    src/broker/AlpacaGateway.cpp
 )
 
 target_compile_features(quantengine_core PUBLIC cxx_std_20)

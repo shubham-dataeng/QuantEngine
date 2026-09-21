@@ -54,6 +54,29 @@ public:
             append_u32(buffer, static_cast<std::uint32_t>(level.order_count));
         }
 
+        // P0.3 Upgrade: Order-level granularity serialization
+        // Bid orders in strict FIFO priority order per level
+        const auto bid_orders = book.get_all_bid_orders();
+        append_u32(buffer, static_cast<std::uint32_t>(bid_orders.size()));
+        for (const auto& ord : bid_orders) {
+            append_u64(buffer, ord.order_id());
+            buffer.push_back(static_cast<std::uint8_t>(ord.side()));
+            append_i64(buffer, ord.price());
+            append_u64(buffer, ord.remaining_quantity());
+            append_u64(buffer, ord.sequence_number());
+        }
+
+        // Ask orders in strict FIFO priority order per level
+        const auto ask_orders = book.get_all_ask_orders();
+        append_u32(buffer, static_cast<std::uint32_t>(ask_orders.size()));
+        for (const auto& ord : ask_orders) {
+            append_u64(buffer, ord.order_id());
+            buffer.push_back(static_cast<std::uint8_t>(ord.side()));
+            append_i64(buffer, ord.price());
+            append_u64(buffer, ord.remaining_quantity());
+            append_u64(buffer, ord.sequence_number());
+        }
+
         return buffer;
     }
 

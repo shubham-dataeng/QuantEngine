@@ -45,6 +45,24 @@ TEST_F(DeterminismAndReplayTest, CanonicalHashStateSensitivity) {
     EXPECT_NE(CanonicalState::compute_hash(e_diff_side), base_hash);
 }
 
+TEST_F(DeterminismAndReplayTest, OrderGranularityHashSensitivity) {
+    // Engine 1: Two orders of 50 shares at same price with IDs {1, 2}
+    MatchingEngine e1;
+    [[maybe_unused]] auto r1 = e1.submit_order(1, Side::Buy, 10000, 50);
+    [[maybe_unused]] auto r2 = e1.submit_order(2, Side::Buy, 10000, 50);
+
+    // Engine 2: Two orders of 50 shares at same price with IDs {3, 4}
+    MatchingEngine e2;
+    [[maybe_unused]] auto r3 = e2.submit_order(3, Side::Buy, 10000, 50);
+    [[maybe_unused]] auto r4 = e2.submit_order(4, Side::Buy, 10000, 50);
+
+    // Both books have identical aggregate levels: 1 level @ 10000, 100 qty, 2 orders.
+    EXPECT_EQ(e1.book().get_bids(), e2.book().get_bids());
+
+    // But order-granularity hashes MUST differ because order IDs differ!
+    EXPECT_NE(CanonicalState::compute_hash(e1), CanonicalState::compute_hash(e2));
+}
+
 TEST_F(DeterminismAndReplayTest, InvariantAuditorHealthyEngine) {
     MatchingEngine engine;
     EXPECT_TRUE(InvariantAuditor::audit(engine));

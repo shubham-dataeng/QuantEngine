@@ -435,6 +435,32 @@ std::vector<reference::LevelInfo> OptimizedOrderBook::get_asks(std::size_t max_l
     return levels;
 }
 
+std::vector<core::Order> OptimizedOrderBook::get_all_bid_orders() const {
+    std::vector<core::Order> orders;
+    orders.reserve(total_orders());
+    for (const auto& [price, level] : bids_) {
+        std::uint32_t curr = level.head;
+        while (curr != NULL_INDEX) {
+            orders.push_back(pool_[curr].order);
+            curr = pool_[curr].next;
+        }
+    }
+    return orders;
+}
+
+std::vector<core::Order> OptimizedOrderBook::get_all_ask_orders() const {
+    std::vector<core::Order> orders;
+    orders.reserve(total_orders());
+    for (const auto& [price, level] : asks_) {
+        std::uint32_t curr = level.head;
+        while (curr != NULL_INDEX) {
+            orders.push_back(pool_[curr].order);
+            curr = pool_[curr].next;
+        }
+    }
+    return orders;
+}
+
 bool OptimizedOrderBook::check_invariants() const noexcept {
     if (order_index_.size() != pool_.active_count()) {
         return false;
