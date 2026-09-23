@@ -200,6 +200,96 @@ auto HistoricalL3Book::apply_replace(const OrderReplaced& repl) noexcept -> bool
     });
 }
 
+auto HistoricalL3Book::match_aggressive(core::Side taker_side, core::Quantity quantity,
+                                        std::optional<core::PriceTicks> limit_price)
+    -> std::vector<core::Trade> {
+    std::vector<core::Trade> trades;
+    if (quantity == 0)
+        return trades;
+
+    if (taker_side == core::Side::Buy) {
+        while (quantity > 0 && !asks_.empty()) {
+            auto level_it = asks_.begin();
+            if (limit_price.has_value() && level_it->first > *limit_price) {
+                break;
+            }
+
+            auto& order_list = level_it->second.orders;
+            auto ord_it = order_list.begin();
+            while (quantity > 0 && ord_it != order_list.end()) {
+                const core::Quantity trade_qty = std::min(quantity, ord_it->remaining_quantity);
+                ord_it->remaining_quantity -= trade_qty;
+                level_it->second.total_quantity -= trade_qty;
+                total_ask_volume_ -= trade_qty;
+                quantity -= trade_qty;
+
+                trades.push_back(core::Trade{
+                    .trade_id = ++current_sequence_,
+                    .maker_order_id = ord_it->venue_order_id,
+                    .taker_order_id = 0,
+                    .maker_side = core::Side::Sell,
+                    .price = ord_it->price,
+                    .quantity = trade_qty,
+                    .sequence_number = current_sequence_,
+                });
+
+                if (ord_it->remaining_quantity == 0) {
+                    order_map_.erase(ord_it->venue_order_id);
+                    ord_it = order_list.erase(ord_it);
+                    --total_orders_;
+                } else {
+                    ++ord_it;
+                }
+            }
+
+            if (order_list.empty()) {
+                asks_.erase(level_it);
+            }
+        }
+    } else {
+        while (quantity > 0 && !bids_.empty()) {
+            auto level_it = bids_.begin();
+            if (limit_price.has_value() && level_it->first < *limit_price) {
+                break;
+            }
+
+            auto& order_list = level_it->second.orders;
+            auto ord_it = order_list.begin();
+            while (quantity > 0 && ord_it != order_list.end()) {
+                const core::Quantity trade_qty = std::min(quantity, ord_it->remaining_quantity);
+                ord_it->remaining_quantity -= trade_qty;
+                level_it->second.total_quantity -= trade_qty;
+                total_bid_volume_ -= trade_qty;
+                quantity -= trade_qty;
+
+                trades.push_back(core::Trade{
+                    .trade_id = ++current_sequence_,
+                    .maker_order_id = ord_it->venue_order_id,
+                    .taker_order_id = 0,
+                    .maker_side = core::Side::Buy,
+                    .price = ord_it->price,
+                    .quantity = trade_qty,
+                    .sequence_number = current_sequence_,
+                });
+
+                if (ord_it->remaining_quantity == 0) {
+                    order_map_.erase(ord_it->venue_order_id);
+                    ord_it = order_list.erase(ord_it);
+                    --total_orders_;
+                } else {
+                    ++ord_it;
+                }
+            }
+
+            if (order_list.empty()) {
+                bids_.erase(level_it);
+            }
+        }
+    }
+
+    return trades;
+}
+
 auto HistoricalL3Book::best_bid_price() const noexcept -> std::optional<core::PriceTicks> {
     if (bids_.empty())
         return std::nullopt;

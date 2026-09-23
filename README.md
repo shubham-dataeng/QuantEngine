@@ -3,14 +3,14 @@
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg?logo=c%2B%2B)](https://en.cppreference.com/w/cpp/20)
 [![CI](https://github.com/shubham-dataeng/QuantEngine/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/shubham-dataeng/QuantEngine/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg?logo=python)](https://www.python.org/)
-[![Tests Passing](https://img.shields.io/badge/Tests-167%2F167%20Passing-brightgreen.svg)]()
+[![Tests Passing](https://img.shields.io/badge/Tests-248%2F248%20Passing-brightgreen.svg)]()
 [![Sanitizers Clean](https://img.shields.io/badge/ASan%20%2F%20UBSan-Clean-success.svg)]()
 
 > **Deterministic, High-Performance C++20 Electronic Trading Platform & Limit Order Matching Engine with Zero-Allocation Architecture, Multi-Tier Risk Controls, and Python Bindings**
 
 QuantEngine is a high-integrity, cache-conscious electronic trading platform and limit order matching engine engineered from first principles in modern C++20. Designed for quantitative trading desks, high-frequency simulation, and microsecond-sensitive execution systems, QuantEngine pairs bit-level determinism with zero-allocation memory pools to deliver **over 11.7 million operations per second** with **84.8 nanosecond mean latency** on commodity x86-64 hardware.
 
-Beyond raw matching throughput, QuantEngine provides a complete, production-structured quantitative infrastructure stack: dual-engine matching cores with continuous property-based differential fuzzing, an order-granularity 64-bit FNV-1a canonical state hashing engine, a 5-tier pre-trade risk management hierarchy with intraday high-water mark circuit breaking, average-cost portfolio accounting, an in-flight 9-state order lifecycle machine, normalized market data and execution gateway abstractions, asynchronous binary event journaling, and native Python bindings releasing the GIL for 1.84+ Mops/s batch ingestion.
+Beyond raw matching throughput, QuantEngine provides a complete, production-structured quantitative infrastructure stack: dual-engine matching cores with continuous property-based differential fuzzing, an order-granularity 64-bit FNV-1a canonical state hashing engine, a 5-tier pre-trade risk management hierarchy with intraday high-water mark circuit breaking, average-cost portfolio accounting, an in-flight 9-state order lifecycle machine, normalized market data and execution gateway abstractions, asynchronous binary event journaling, deterministic Historical L3 Market Replay with queue-position tracking and virtual time latency modeling, and native Python bindings releasing the GIL for 1.84+ Mops/s batch ingestion.
 
 ---
 
@@ -21,9 +21,10 @@ Beyond raw matching throughput, QuantEngine provides a complete, production-stru
 | **Peak Throughput** | **11.79 Mops/s** (Balanced)<br>**15.14 Mops/s** (Crossing) | Contiguous arena allocation; $O(1)$ intrusive price queue operations |
 | **Execution Latency** | **84.8 ns** mean &middot; **90 ns** p50<br>**281 ns** p99 &middot; **441 ns** p99.9 | Zero runtime dynamic heap allocations (`malloc`/`new`) on the hot matching path |
 | **Tail Latency Reduction** | **6.1x lower p99** vs STL<br>(331 ns vs 2,038 ns in Add-Heavy) | Eliminates memory fragmentation, allocator locks, and kernel page faults |
+| **Historical L3 Replay** | **14.51 Mlines/s** CSV Ingestion<br>**7.08 Mevents/s** Book Rebuild<br>**7.15 Mevents/s** Full Sim Pipeline | Zero-copy string_view parsing; deterministic FIFO queue-ahead tracking & aggressive matching |
 | **Determinism** | **Bit-for-Bit Identical** across runs | Eliminates wall-clock time in logic; validated via 64-bit FNV-1a canonical state hashes |
 | **Memory Footprint** | **72-byte `OrderNode`** &middot; **64-byte `Quote`** | Compile-time `static_assert` layout verification; 65k orders fit inside CPU L3 cache |
-| **Test Verification** | **167 / 167 Tests Passing** (Release/Debug)<br>**166 / 166 Sanitizer Tests Clean** | Zero memory leaks, zero undefined behavior, zero data races under ASan / UBSan |
+| **Test Verification** | **248 / 248 Tests Passing** (Release/Debug)<br>**248 / 248 Sanitizer Tests Clean** | Zero memory leaks, zero undefined behavior, zero data races under ASan / UBSan |
 | **Risk Gate** | **5-Tier Pre-Trade Hierarchy** | 8-byte `RiskVerdict`; sub-nanosecond order rejection; drawdown circuit breaker |
 | **Order Lifecycle** | **9-State Finite State Machine** | Formal lifecycle transitions; Client Order ID to Venue Order ID two-way reconciliation |
 | **Event Persistence** | **Binary QEVJ v1 Journal + Async Worker** | 32-byte header, FNV-1a frame checksums, non-blocking lock-free/mutex ring buffer |
@@ -227,6 +228,18 @@ All microbenchmarks are measured empirically via **Google Benchmark v1.8.3** wit
 >
 > *For the full benchmarking report, see [docs/BENCHMARKS.md](docs/BENCHMARKS.md).*
 
+### Historical L3 Market Replay & Execution Simulation Benchmarks
+
+All replay benchmarks are executed using `quantengine_bench_l3` under GCC 13.3.0 (`-O3 -DNDEBUG -std=c++20`) on AMD Ryzen 7 7840HS:
+
+| Benchmark Pipeline | Workload Scale | Measured Time | Throughput | Mean Latency / Event |
+| :--- | :---: | :---: | :---: | :---: |
+| **`L3CsvParser` Stream Ingestion** | 10k Line Batch | 0.689 ms | **14.51 Mlines/s** | **68.9 ns** / line |
+| **`HistoricalL3Book` Reconstruction** | 100k Events | 14.1 ms | **7.08 Mevents/s** | **141.2 ns** / event |
+| **`HistoricalL3Book` Reconstruction** | 1,000,000 Events | 242.0 ms | **4.14 Mevents/s** | **241.7 ns** / event |
+| **Full Replay Pipeline (Passive + Fills + Portfolio)** | 100k Events | 14.0 ms | **7.15 Mevents/s** | **139.9 ns** / event |
+| **Full Replay Pipeline (Passive + Fills + Portfolio)** | 1,000,000 Events | 354.0 ms | **2.82 Mevents/s** | **354.2 ns** / event |
+
 ---
 
 ## Memory Layout & Cache Verification
@@ -406,6 +419,171 @@ QuantEngine provides high-performance binary journaling to ensure that every tra
 
 ---
 
+## Historical L3 Market Replay & Queue-Position Execution Simulator
+
+Traditional backtesting frameworks suffer from critical flaws: they either assume instantaneous fills at the top-of-book (L1), rely on synthetic Poisson fill models, or use system wall-clock sleeps (`std::this_thread::sleep_for`), rendering research results non-deterministic and vulnerable to backtest overfitting.
+
+QuantEngine introduces a **deterministic, zero-allocation Historical Level 3 (MBO - Market By Order) Market Replay and Queue-Position-Aware Execution Simulator**. It reconstructs the full exchange order book tick-by-tick, tracks the exact queue position of simulated participant orders, enforces deterministic 4-stage virtual latency, and routes fills directly into the portfolio accounting engine.
+
+```mermaid
+flowchart TD
+    subgraph Feed ["Historical L3 Ingestion Layer"]
+        CSV["L3 Market Data (CSV / Binary Feed)"]
+        Parser["L3CsvParser (Zero-Allocation string_view)"]
+        Adversary["Adversarial Error Filter & Validator"]
+        CSV --> Parser --> Adversary
+    end
+
+    subgraph Timeline ["Deterministic Virtual Event Timeline"]
+        Clock["EventClock (Monotonic Virtual Time)"]
+        Queue["VirtualTimeline (Priority Queue)"]
+        Latency["LatencyModel (Feed, Decision, Entry, Response)"]
+        Adversary --> Queue
+        Clock -.-> Queue
+        Latency -.-> Queue
+    end
+
+    subgraph ReplayCore ["Replay & Matching Engine"]
+        HistBook["HistoricalL3Book (Reconstruction)"]
+        Tracker["QueuePositionTracker (Level Queues)"]
+        Fifo["FifoQueueModel (IQueueModel Interface)"]
+        Gateway["ReplayGateway (IExecutionGateway)"]
+        
+        Queue --> HistBook
+        HistBook <--> Tracker
+        Tracker <--> Fifo
+        Gateway <--> HistBook
+        Gateway <--> Tracker
+    end
+
+    subgraph StrategyLayer ["Quantitative Alpha & Portfolio"]
+        Strat["Simulated Strategy / Alpha Model"]
+        Port["Portfolio (AVCO Accounting & P&L)"]
+        
+        Queue --> Strat
+        Strat --> Gateway
+        Gateway --> Port
+    end
+```
+
+### 1. Canonical L3 Market Events (`L3Message`)
+Exchange order feeds broadcast discrete order lifecycle messages. QuantEngine represents them as strongly typed, 64-bit aligned structures unified in a zero-allocation `std::variant`:
+* `OrderAdded`: New resting limit order placed at an exchange venue with a unique `VenueOrderId`, side, price ticks, and quantity.
+* `OrderExecuted`: Execution of an existing resting order, reducing its remaining quantity.
+* `OrderCancelled`: Cancellation or reduction of a resting order.
+* `OrderReplaced`: Venue order modification atomically altering price or quantity (resets time priority in FIFO queues).
+* `TradeMessage`: Off-book, non-displayed, or crossed trade execution report carrying price, quantity, and market condition flags.
+
+### 2. Deterministic Book Reconstruction (`HistoricalL3Book`)
+* **Price/Time Priority**: Tracks all resting orders across price levels in strictly sorted `std::map<PriceTicks, ...>` queues.
+* **Volume Aggregation**: Dynamically maintains aggregate bid/ask depth ladders with zero dynamic allocation on updates.
+* **Invariant Auditing**: Validates continuous volume conservation and uncrossed spread states across every historical tick.
+* **Canonical State Hash**: Computes an order-granularity 64-bit FNV-1a hash across the entire active historical book for bit-exact verification across different machines.
+
+### 3. Queue-Position-Aware Fill Modeling (`QueuePositionTracker`)
+When a quantitative strategy places a passive limit order at the inside market, it does not receive an instantaneous fill. Instead, it enters the queue behind existing resting liquidity:
+* **Level Queue Ahead**: Upon placement at price level $P$, the simulator captures the total resting volume ahead of the participant order:
+  $$Q_{\text{ahead}}(t_0) = \sum_{i \in \text{OrdersAhead}} Q_i(t_0)$$
+* **Historical Execution Depletion**: As historical `OrderExecuted` events arrive at price $P$, they deplete the queue ahead:
+  $$Q_{\text{ahead}}(t + 1) = \max(0, \; Q_{\text{ahead}}(t) - Q_{\text{exec}})$$
+* **Historical Cancellation Tracking**: Cancellations occurring at the price level are disambiguated:
+  - If the cancelled order had arrived *before* our order, $Q_{\text{ahead}}$ is decremented.
+  - If the cancelled order arrived *after* our order, $Q_{\text{ahead}}$ is unaffected.
+* **Participant Execution**: Once $Q_{\text{ahead}} == 0$, subsequent historical executions at price $P$ fill the participant's order up to available execution size.
+* **Immediate Trade-Through**: If an execution occurs at a price strictly through our limit order ($P_{\text{exec}} > P_{\text{ask}}$ or $P_{\text{exec}} < P_{\text{bid}}$), all queue ahead is exhausted and the order fills immediately.
+
+### 4. Virtual Time & 4-Stage Latency Pipeline
+Wall-clock calls (`std::chrono::system_clock::now()`) introduce non-deterministic OS thread scheduling delays into backtests. QuantEngine eliminates all physical sleeps:
+* **`EventClock`**: An explicit, monotonically advancing virtual clock driven strictly by event timestamps.
+* **`LatencyModel`**: Configurable microsecond/nanosecond network and compute pipeline latencies:
+  1. $t_{\text{feed}}$: Wire delay from the exchange to the strategy observation point.
+  2. $t_{\text{decision}}$: Internal strategy compute delay to generate an `OrderRequest`.
+  3. $t_{\text{entry}}$: Inbound network wire delay from the trading server to the exchange gateway.
+  4. $t_{\text{response}}$: Outbound execution confirmation return wire delay.
+* **`VirtualTimeline`**: A discrete-event priority queue that serializes and interleaves market events, order arrivals, and simulated fill notices in exact chronological sequence.
+
+### 5. CLI Replay & Summary Analysis (`quantengine_cli replay-l3`)
+The command-line interface provides high-throughput replay execution with real-time ASCII depth ladders, queue statistics, latency breakdowns, and portfolio P&L:
+
+```bash
+./build/dev-release/quantengine_cli replay-l3 tests/fixtures/l3_sample.csv \
+    --depth 5 \
+    --latency-feed 5000 \
+    --latency-entry 5000 \
+    --latency-resp 5000 \
+    --simulate-mm
+```
+
+#### Replay Terminal Summary Output
+```
+=========================================================================
+            HISTORICAL L3 REPLAY & EXECUTION SIMULATION REPORT           
+=========================================================================
+ Feed Source:          tests/fixtures/l3_sample.csv
+ Events Processed:     13
+ Parse Errors Skipped: 0
+ Replay Wall Time:     0.02 ms (0.83 Mops/sec)
+ Virtual Event Span:   1200 ns (0.00 ms)
+-------------------------------------------------------------------------
+ EVENT BREAKDOWN:
+   OrderAdded (A):        6
+   OrderExecuted (E):     3
+   OrderCancelled (C):    1
+   OrderReplaced (R):     1
+   TradeMessage (T):      2
+-------------------------------------------------------------------------
+ FINAL BOOK RECONSTRUCTION:
+   Resting Orders:        4
+   Total Bid Volume:      225
+   Total Ask Volume:      125
+   Best Bid Price (Qty):  28000 (200)
+   Best Ask Price (Qty):  15050 (75)
+   Inside Market Spread:  -12950 ticks
+
++-------------------------------------------------------------------------+
+|                        ORDER BOOK DEPTH LADDER                          |
++--------------------+-----------------+-----------------+----------------+
+|   Bid Orders (Vol) |       Bid Price |       Ask Price | Ask Orders(Vol)|
++--------------------+-----------------+-----------------+----------------+
+|            1 (200) |           28000 |           15050 |         1 (75) |
+|             1 (25) |           15000 |           15075 |         1 (50) |
++--------------------+-----------------+-----------------+----------------+
+
+-------------------------------------------------------------------------
+ VIRTUAL LATENCY CONFIGURATION:
+   Feed Latency:          5000 ns
+   Entry Wire Latency:    5000 ns
+   Response Wire Latency: 5000 ns
+   Round-Trip Latency:    10000 ns
+-------------------------------------------------------------------------
+ PORTFOLIO & QUEUE SIMULATION:
+   Simulated Orders:      4
+   Active Resting:        2
+   Portfolio Realized P&L:0 ticks
+   Open Orders Tracked:   2
+-------------------------------------------------------------------------
+ DETERMINISTIC STATE & VERIFICATION:
+   Invariant Audit:       PASSED (ZERO ANOMALIES)
+   Canonical 64-bit Hash: 0x9d887bd855316601
+=========================================================================
+```
+
+### 6. Simulation Limitations & Defensible Assumptions
+To ensure rigorous quantitative research, quantitative researchers must understand where historical simulation models diverge from live exchange microstructure:
+
+1. **Non-Displayed & Iceberg Liquidity**:
+   Exchanges (e.g. NASDAQ, BATS) support hidden limit orders and discretionary reserve (iceberg) orders. These orders do not broadcast `OrderAdded` messages on lit L3 feeds. In historical data, executions can occur against non-displayed volume, creating "phantom" matches. The QuantEngine replay engine correctly attributes execution quantity to level queue depletion, but cannot infer non-displayed order queues prior to execution.
+2. **Off-Exchange Internalization & PFOF**:
+   In US equity markets, over 40% of overall share volume—and a vast majority of marketable retail flow—is internalized off-exchange by wholesale market makers (Citadel Securities, Virtu, Jane Street) or routed through Alternative Trading Systems (ATS / dark pools) under Payment for Order Flow (PFOF). Simulated orders interacting strictly with lit exchange L3 data do not capture dark pool mid-point crosses or retail internalization skimming.
+3. **Exogenous Market Feed & Adverse Selection (Market Impact)**:
+   The simulator treats the historical event stream as an exogenous environment: historical participants do not cancel, modify, or add orders in reaction to the presence of the simulated strategy's orders. In reality, large resting participant orders discourage opposing aggressive liquidity, while aggressive sweeps cause market impact. Furthermore, passive fills in backtesting are subject to **adverse selection**: resting quotes are most likely to be filled precisely when toxic flow is informed and about to breach the price level.
+4. **Deterministic vs. Stochastic Wire Jitter**:
+   While `LatencyModel` accurately accounts for constant or symmetric transit delays, real-world network interfaces experience queueing delays, operating system scheduling interrupts, TCP ACK delays, and microburst switch contention that produce heavy-tailed stochastic latency distributions.
+5. **Exchange Core Serialization Micro-Races**:
+   When a participant's cancel request races against an incoming aggressive market sweep arriving at nearly the exact same timestamp, the physical outcome is decided by the nanosecond serialization order on the exchange matching engine's CPU core. Virtual time models resolve races deterministically according to event priority timestamps.
+
+---
+
 ## Python Integration & High-Throughput Batch API
 
 QuantEngine exposes its C++ matching core and domain types to Python via **Pybind11**. The bindings are designed for zero-copy efficiency and high-speed quantitative backtesting.
@@ -458,6 +636,10 @@ The compiled `quantengine_cli` binary provides built-in tools for interactive vi
 
 # 3. Deterministic event journal replay with continuous invariant auditing
 ./build/dev-release/quantengine_cli replay examples/sample_journal.csv --verify-invariants
+
+# 4. Historical L3 Market Replay with queue modeling, latency, and portfolio stats
+./build/dev-release/quantengine_cli replay-l3 tests/fixtures/l3_sample.csv \
+    --latency-feed 5000 --latency-entry 5000 --latency-resp 5000 --simulate-mm
 ```
 
 ### ASCII Visual Depth Ladder Output
@@ -594,16 +776,16 @@ int main() {
 
 ---
 
-## Testing & Quality Assurance Matrix
+### Testing & Quality Assurance Matrix
 
 | Test Category | Target / Suite | Count | Verification Scope |
 | :--- | :--- | :---: | :--- |
-| **Unit Tests** | `tests/unit/test_*.cpp` | 132 | Core orders, trades, event routing, portfolio AVCO, risk manager, state machine, circuit breaker, binary journal |
+| **Unit Tests** | `tests/unit/test_*.cpp` | 213 | Core orders, trades, event routing, portfolio AVCO, risk manager, state machine, circuit breaker, binary journal, L3 messages, historical book, queue tracker, latency model, replay gateway, market making experiment |
 | **Differential Fuzzing**| `FuzzSeeds/DifferentialFuzzTest` | 4 | Multi-seed property-based fuzz tests comparing `ReferenceOrderBook` vs `OptimizedOrderBook` |
-| **Sanitizers (ASan/UBSan)**| `dev-sanitizer` preset | 166 | Continuous memory leak, bounds check, and undefined behavior audit |
+| **Sanitizers (ASan/UBSan)**| `dev-sanitizer` preset | 248 | Continuous memory leak, bounds check, and undefined behavior audit |
 | **Python Integration**| `tests/python/test_*.py` | 31 | Type conversions, matching engine interop, determinism replay, high-throughput batch API |
 | **Layout Guards** | Compile-Time Assertions | 14+ | `static_assert(sizeof(...))` verifying exact byte sizes and alignment |
-| **Total Automated Tests**| **`ctest --preset dev-release`** | **167** | **100% Passing in < 1.0s** |
+| **Total Automated Tests**| **`ctest --preset dev-release`** | **248** | **100% Passing in < 1.4s** |
 
 ---
 
@@ -621,6 +803,7 @@ QuantEngine/
 │       ├── engine/             # Matching engines, canonical state, invariants, replay
 │       ├── reference/          # ReferenceOrderBook (STL baseline)
 │       ├── optimized/          # OptimizedOrderBook (Zero-allocation arena pool)
+│       ├── replay/             # Historical L3 Replay (L3Message, Book, QueueModel, Timeline, Gateway)
 │       ├── market/             # IMarketDataFeed, MarketEvent (Tick, Quote, Trade, Snapshot)
 │       ├── execution/          # IExecutionGateway, OrderStateMachine, SimGateway
 │       ├── risk/               # IRiskManager, StandardRiskManager, CircuitBreaker
@@ -629,13 +812,14 @@ QuantEngine/
 │       ├── journal/            # BinaryJournal (QEVJ v1), AsyncJournal
 │       └── broker/             # AlpacaWsFeed, AlpacaGateway
 ├── src/
-│   ├── cli/                    # quantengine_cli (demo ladder, benchmark, replay)
+│   ├── cli/                    # quantengine_cli (demo ladder, benchmark, replay, replay-l3)
 │   ├── core/                   # Core types and serialization implementations
 │   ├── engine/                 # Matching engine, invariants, canonical hashing
 │   ├── reference/              # Reference order book implementation
 │   ├── optimized/              # Optimized order book & OrderPool implementation
+│   ├── replay/                 # L3 parser, HistoricalL3Book, QueueTracker, Timeline, ReplayGateway
 │   ├── execution/              # OrderStateMachine & SimGateway implementations
-│   ├── risk/                   # StandardRiskManager implementation
+│   ├── risk/               # StandardRiskManager implementation
 │   ├── portfolio/              # Portfolio AVCO accounting implementation
 │   ├── strategy/               # StrategyRunner implementation
 │   ├── journal/                # BinaryJournal & AsyncJournal worker implementations
@@ -643,10 +827,11 @@ QuantEngine/
 ├── bindings/
 │   └── python/                 # Pybind11 C++ bindings and quantengine.pyi type stubs
 ├── tests/
-│   ├── unit/                   # 132 GoogleTest unit test cases
+│   ├── unit/                   # 213 GoogleTest unit test cases (core + replay + strategy)
 │   ├── fuzz/                   # Differential property-based fuzz generator
+│   ├── fixtures/               # Repository-safe synthetic L3 CSV market data
 │   └── python/                 # Pytest test suite (31 test cases)
-├── benchmarks/                 # Google Benchmark latency & throughput microbenchmarks
+├── benchmarks/                 # Google Benchmark latency, throughput & L3 replay microbenchmarks
 ├── examples/                   # Sample event journals (CSV)
 ├── docs/                       # ARCHITECTURE.md, DESIGN_DECISIONS.md, BENCHMARKS.md
 └── third_party/                # GoogleTest, Google Benchmark, Pybind11 submodules
@@ -689,6 +874,15 @@ All architectural phases and platform milestones have been fully implemented, in
 - [x] **Milestone 9, 10 & 12: Alpaca WebSocket Feed & REST Gateway Simulation**
   - `AlpacaWsFeed` JSON market data parser with sequence gap tracking and simulated reconnection.
   - `AlpacaGateway` REST payload formatter, venue state machine reconciliation, and fill injection.
+- [x] **Phase 1–5: Historical L3 Market Replay & Execution Simulation**
+  - Strongly typed canonical L3 market events (`OrderAdded`, `OrderExecuted`, `OrderCancelled`, `OrderReplaced`, `TradeMessage`).
+  - Zero-copy streaming `L3CsvParser` with adversarial syntactic and semantic validation.
+  - Deterministic `HistoricalL3Book` reconstruction with FIFO queues, depth ladder, and 64-bit FNV-1a canonical hash.
+  - Deterministic queue position model (`FifoQueueModel`, `QueuePositionTracker`) tracking queue ahead and cancellation attribution.
+  - Monotonic `EventClock`, 4-stage configurable `LatencyModel` (feed, decision, entry wire, response wire), and priority-ordered `VirtualTimeline`.
+  - `ReplayGateway` integrating aggressive sweeps and passive queue fills with portfolio AVCO ledger accounting.
+  - End-to-end deterministic market maker research experiment and `quantengine_cli replay-l3` command.
+  - Realistic 100k and 1M event microbenchmarks (`BM_L3CsvParser_ParseLine`, `BM_HistoricalL3Book_Reconstruction`, `BM_FullReplay_Pipeline`).
 
 ### Future Roadmap
 - [ ] Direct binary exchange protocols (e.g. NASDAQ ITCH 5.0 market data, OUCH 5.0 order entry).
@@ -705,7 +899,7 @@ Contributions to QuantEngine are welcome. Please ensure that all submissions adh
 1. **Format & Style**: Format all C++ code using `clang-format` (`find include src tests benchmarks bindings -name '*.hpp' -o -name '*.cpp' | xargs clang-format -i`).
 2. **Zero Warnings**: Code must compile cleanly under `-Wall -Wextra -Wpedantic -Werror`.
 3. **Memory Integrity**: All changes must pass AddressSanitizer and UndefinedBehaviorSanitizer suites with zero leaks or errors (`ctest --preset dev-sanitizer`).
-4. **Full Test Coverage**: Every new feature or bugfix must be accompanied by GoogleTest unit tests, and all **167 tests** must pass (`ctest --preset dev-release`).
+4. **Full Test Coverage**: Every new feature or bugfix must be accompanied by GoogleTest unit tests, and all **248 tests** must pass (`ctest --preset dev-release`).
 
 ---
 

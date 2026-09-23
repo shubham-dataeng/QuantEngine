@@ -27,6 +27,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "quantengine/core/trade.hpp"
 #include "quantengine/core/types.hpp"
 #include "quantengine/engine/canonical_state.hpp"
 #include "quantengine/market/MarketEvent.hpp"
@@ -67,6 +68,11 @@ public:
     auto apply_execute(const OrderExecuted& exec) noexcept -> bool;
     auto apply_cancel(const OrderCancelled& cancel) noexcept -> bool;
     auto apply_replace(const OrderReplaced& repl) noexcept -> bool;
+
+    // Aggressive matching against resting historical liquidity (takes liquidity)
+    auto match_aggressive(core::Side taker_side, core::Quantity quantity,
+                          std::optional<core::PriceTicks> limit_price = std::nullopt)
+        -> std::vector<core::Trade>;
 
     // Queries: BBO
     [[nodiscard]] auto best_bid_price() const noexcept -> std::optional<core::PriceTicks>;

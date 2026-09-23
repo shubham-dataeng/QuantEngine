@@ -18,7 +18,14 @@
 #include "quantengine/engine/invariants.hpp"
 #include "quantengine/engine/workload_generator.hpp"
 #include "quantengine/optimized/optimized_order_book.hpp"
+#include "quantengine/portfolio/Portfolio.hpp"
 #include "quantengine/reference/reference_order_book.hpp"
+#include "quantengine/replay/EventClock.hpp"
+#include "quantengine/replay/HistoricalL3Book.hpp"
+#include "quantengine/replay/L3CsvParser.hpp"
+#include "quantengine/replay/LatencyModel.hpp"
+#include "quantengine/replay/QueuePositionTracker.hpp"
+#include "quantengine/replay/ReplayGateway.hpp"
 
 using namespace quantengine;
 using namespace quantengine::core;
@@ -45,6 +52,7 @@ static void print_help(const char* prog) {
         << "  demo                  Run an interactive visual order book matching simulation\n"
         << "  benchmark [options]   Run high-resolution microbenchmarks and latency profiling\n"
         << "  replay <file>         Replay an event journal, verify determinism and invariants\n"
+        << "  replay-l3 <file>      Replay historical L3 feed with queue & execution simulation\n"
         << "  --version, -v         Display engine version\n"
         << "  --help, -h            Display this help banner\n\n"
         << "Benchmark Options:\n"
@@ -53,7 +61,11 @@ static void print_help(const char* prog) {
         << "  --engine <type>       optimized | reference (default: optimized)\n\n"
         << "Replay Options:\n"
         << "  --engine <type>       optimized | reference (default: optimized)\n"
-        << "  --verify-invariants   Audit invariants after each command (default: true)\n\n";
+        << "  --verify-invariants   Audit invariants after each command (default: true)\n\n"
+        << "Replay-L3 Options:\n"
+        << "  --latency-feed <ns>   Virtual feed observation delay in ns (default: 0)\n"
+        << "  --latency-entry <ns>  Virtual order wire transit delay in ns (default: 0)\n"
+        << "  --latency-resp <ns>   Virtual fill response delay in ns (default: 0)\n\n";
 }
 
 static void print_depth_ladder(const std::vector<reference::LevelInfo>& bids,
@@ -343,6 +355,171 @@ static int run_replay(const std::string& filepath, bool use_optimized) {
     return ok ? 0 : 1;
 }
 
+static int run_replay_l3(const std::string& filepath, market::NanoTs feed_lat,
+                         market::NanoTs entry_lat, market::NanoTs resp_lat, bool simulate_mm) {
+    std::ifstream file(filepath);
+    if (!file.is_open()) {
+        std::cerr << "Error: Could not open L3 feed file: " << filepath << "\n";
+        return 1;
+    }
+
+    replay::L3CsvParser parser(file, filepath);
+    replay::HistoricalL3Book book;
+    replay::QueuePositionTracker tracker;
+    replay::EventClock clock(0);
+    replay::LatencyConfig latency{
+        .feed_latency_ns = feed_lat,
+        .decision_latency_ns = 0,
+        .entry_latency_ns = entry_lat,
+        .response_latency_ns = resp_lat,
+    };
+    replay::ReplayGateway gateway(book, tracker, clock, latency);
+    portfolio::Portfolio portfolio;
+    (void)gateway.connect(portfolio);
+
+    std::uint64_t count_adds = 0;
+    std::uint64_t count_execs = 0;
+    std::uint64_t count_cancels = 0;
+    std::uint64_t count_replaces = 0;
+    std::uint64_t count_trades = 0;
+
+    market::NanoTs first_ts = 0;
+    market::NanoTs last_ts = 0;
+    bool first = true;
+
+    OrderId mm_order_id = 9000;
+    std::size_t mm_quotes = 0;
+
+    const auto t_start = std::chrono::steady_clock::now();
+
+    replay::L3Message msg;
+    while (parser.next(msg)) {
+        const market::NanoTs ts = replay::l3_exchange_ts(msg);
+        if (first) {
+            first_ts = ts;
+            first = false;
+        }
+        last_ts = ts;
+
+        switch (replay::message_kind(msg)) {
+            case replay::L3MessageKind::OrderAdded:
+                ++count_adds;
+                break;
+            case replay::L3MessageKind::OrderExecuted:
+                ++count_execs;
+                break;
+            case replay::L3MessageKind::OrderCancelled:
+                ++count_cancels;
+                break;
+            case replay::L3MessageKind::OrderReplaced:
+                ++count_replaces;
+                break;
+            case replay::L3MessageKind::TradeMessage:
+                ++count_trades;
+                break;
+        }
+
+        gateway.process_historical_message(msg);
+
+        if (simulate_mm && book.best_bid_price().has_value() && book.best_ask_price().has_value() &&
+            *book.best_bid_price() < *book.best_ask_price()) {
+            // Place passive quote on inside market
+            if (tracker.active_order_count() < 2) {
+                market::SymbolArray sym = market::make_symbol(replay::l3_symbol(msg));
+                (void)gateway.submit_order(execution::OrderRequest{
+                    .client_order_id = ++mm_order_id,
+                    .side = Side::Buy,
+                    .type = OrderType::Limit,
+                    .time_in_force = execution::TimeInForce::Day,
+                    .symbol = sym,
+                    .price = *book.best_bid_price(),
+                    .quantity = 10,
+                });
+                (void)gateway.submit_order(execution::OrderRequest{
+                    .client_order_id = ++mm_order_id,
+                    .side = Side::Sell,
+                    .type = OrderType::Limit,
+                    .time_in_force = execution::TimeInForce::Day,
+                    .symbol = sym,
+                    .price = *book.best_ask_price(),
+                    .quantity = 10,
+                });
+                mm_quotes += 2;
+            }
+        }
+    }
+
+    const auto t_end = std::chrono::steady_clock::now();
+    const double elapsed_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
+    const std::uint64_t total_events = parser.messages_consumed();
+    const double throughput_mops =
+        (elapsed_ms > 0) ? (static_cast<double>(total_events) / (elapsed_ms * 1000.0)) : 0.0;
+
+    const bool inv_ok = book.check_invariants();
+    const std::uint64_t hash = book.compute_canonical_hash();
+
+    std::ostringstream hash_ss;
+    hash_ss << "0x" << std::hex << std::setfill('0') << std::setw(16) << hash;
+
+    std::cout << "\n=========================================================================\n"
+              << "            HISTORICAL L3 REPLAY & EXECUTION SIMULATION REPORT           \n"
+              << "=========================================================================\n"
+              << " Feed Source:          " << filepath << "\n"
+              << " Events Processed:     " << total_events << "\n"
+              << " Parse Errors Skipped: " << parser.error_count() << "\n"
+              << " Replay Wall Time:     " << std::fixed << std::setprecision(2) << elapsed_ms
+              << " ms (" << std::setprecision(2) << throughput_mops << " Mops/sec)\n"
+              << " Virtual Event Span:   " << (last_ts - first_ts) << " ns ("
+              << static_cast<double>(last_ts - first_ts) / 1'000'000.0 << " ms)\n"
+              << "-------------------------------------------------------------------------\n"
+              << " EVENT BREAKDOWN:\n"
+              << "   OrderAdded (A):        " << count_adds << "\n"
+              << "   OrderExecuted (E):     " << count_execs << "\n"
+              << "   OrderCancelled (C):    " << count_cancels << "\n"
+              << "   OrderReplaced (R):     " << count_replaces << "\n"
+              << "   TradeMessage (T):      " << count_trades << "\n"
+              << "-------------------------------------------------------------------------\n"
+              << " FINAL BOOK RECONSTRUCTION:\n"
+              << "   Resting Orders:        " << book.total_orders() << "\n"
+              << "   Total Bid Volume:      " << book.total_bid_volume() << "\n"
+              << "   Total Ask Volume:      " << book.total_ask_volume() << "\n";
+
+    if (book.best_bid_price().has_value() && book.best_ask_price().has_value()) {
+        const PriceTicks spread = *book.best_ask_price() - *book.best_bid_price();
+        std::cout << "   Best Bid Price (Qty):  " << *book.best_bid_price() << " ("
+                  << *book.best_bid_quantity() << ")\n"
+                  << "   Best Ask Price (Qty):  " << *book.best_ask_price() << " ("
+                  << *book.best_ask_quantity() << ")\n"
+                  << "   Inside Market Spread:  " << spread << " ticks\n";
+    } else {
+        std::cout << "   Inside Market BBO:     [One-sided or Empty]\n";
+    }
+
+    print_depth_ladder(book.get_bids(5), book.get_asks(5));
+
+    std::cout << "-------------------------------------------------------------------------\n"
+              << " VIRTUAL LATENCY CONFIGURATION:\n"
+              << "   Feed Latency:          " << latency.feed_latency_ns << " ns\n"
+              << "   Entry Wire Latency:    " << latency.entry_latency_ns << " ns\n"
+              << "   Response Wire Latency: " << latency.response_latency_ns << " ns\n"
+              << "   Round-Trip Latency:    " << latency.total_round_trip() << " ns\n"
+              << "-------------------------------------------------------------------------\n"
+              << " PORTFOLIO & QUEUE SIMULATION:\n"
+              << "   Simulated Orders:      "
+              << (simulate_mm ? mm_quotes : tracker.active_order_count()) << "\n"
+              << "   Active Resting:        " << tracker.active_order_count() << "\n"
+              << "   Portfolio Realized P&L:" << portfolio.total_realized_pnl() << " ticks\n"
+              << "   Open Orders Tracked:   " << portfolio.open_order_count() << "\n"
+              << "-------------------------------------------------------------------------\n"
+              << " DETERMINISTIC STATE & VERIFICATION:\n"
+              << "   Invariant Audit:       " << (inv_ok ? "PASSED (ZERO ANOMALIES)" : "FAILED")
+              << "\n"
+              << "   Canonical 64-bit Hash: " << hash_ss.str() << "\n"
+              << "=========================================================================\n\n";
+
+    return inv_ok ? 0 : 1;
+}
+
 int main(int argc, char** argv) {
     if (argc < 2) {
         print_help(argv[0]);
@@ -414,6 +591,34 @@ int main(int argc, char** argv) {
             }
         }
         return run_replay(filepath, use_optimized);
+    }
+
+    if (cmd == "replay-l3") {
+        if (argc < 3) {
+            std::cerr << "Usage: " << argv[0]
+                      << " replay-l3 <csv_file> [--latency-feed <ns>] [--latency-entry <ns>] "
+                         "[--latency-resp <ns>] [--simulate-mm]\n";
+            return 1;
+        }
+        std::string filepath = argv[2];
+        market::NanoTs feed_lat = 0;
+        market::NanoTs entry_lat = 0;
+        market::NanoTs resp_lat = 0;
+        bool simulate_mm = false;
+
+        for (int i = 3; i < argc; ++i) {
+            std::string arg = argv[i];
+            if (arg == "--latency-feed" && i + 1 < argc) {
+                feed_lat = std::stoll(argv[++i]);
+            } else if (arg == "--latency-entry" && i + 1 < argc) {
+                entry_lat = std::stoll(argv[++i]);
+            } else if (arg == "--latency-resp" && i + 1 < argc) {
+                resp_lat = std::stoll(argv[++i]);
+            } else if (arg == "--simulate-mm") {
+                simulate_mm = true;
+            }
+        }
+        return run_replay_l3(filepath, feed_lat, entry_lat, resp_lat, simulate_mm);
     }
 
     std::cerr << "Unknown command: " << cmd << "\n";

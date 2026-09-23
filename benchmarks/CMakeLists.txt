@@ -40,3 +40,23 @@ target_link_libraries(quantengine_benchmarks
         quantengine_core
         benchmark::benchmark
 )
+
+add_executable(quantengine_bench_l3
+    bench_l3_replay.cpp
+)
+
+target_compile_features(quantengine_bench_l3 PRIVATE cxx_std_20)
+
+target_include_directories(quantengine_bench_l3
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/../include
+)
+
+target_compile_options(quantengine_bench_l3 PRIVATE ${QUANTENGINE_WARNING_FLAGS})
+
+target_link_libraries(quantengine_bench_l3
+    PRIVATE
+        quantengine_core
+        benchmark::benchmark
+)
