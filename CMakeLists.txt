@@ -63,6 +63,11 @@ add_library(quantengine_core
     src/journal/AsyncJournal.cpp
     src/broker/AlpacaWsFeed.cpp
     src/broker/AlpacaGateway.cpp
+    # Phase 2 & Phase 3: L3 replay subsystem
+    src/replay/L3CsvParser.cpp
+    src/replay/HistoricalL3Book.cpp
+    src/replay/FifoQueueModel.cpp
+    src/replay/QueuePositionTracker.cpp
 )
 
 target_compile_features(quantengine_core PUBLIC cxx_std_20)

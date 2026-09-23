@@ -41,6 +41,9 @@ add_executable(quantengine_tests
     unit/test_circuit_breaker.cpp
     unit/test_alpaca_integration.cpp
     unit/test_async_journal.cpp
+    # Phase 2 & Phase 3: L3 replay subsystem tests
+    unit/test_l3_messages.cpp
+    unit/test_historical_book.cpp
 )
 
 target_compile_features(quantengine_tests PRIVATE cxx_std_20)

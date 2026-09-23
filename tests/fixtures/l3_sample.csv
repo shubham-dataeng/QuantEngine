@@ -1,0 +1,43 @@
+# QuantEngine Synthetic L3 Feed v1
+#
+# This file is the canonical reference fixture for L3CsvParser tests.
+# It exercises all five message types with a realistic two-symbol session.
+#
+# Prices in ticks: 1 tick = $0.01 USD
+# Side: B = Buy (bid), S = Sell (ask/offer)
+#
+# Format per message type:
+#   A: type,ts_ns,venue_order_id,symbol,price_ticks,quantity,side
+#   E: type,ts_ns,venue_order_id,symbol,executed_qty,match_number
+#   C: type,ts_ns,venue_order_id,symbol,cancelled_qty
+#   R: type,ts_ns,old_venue_order_id,new_venue_order_id,symbol,new_price_ticks,new_quantity,side
+#   T: type,ts_ns,match_number,symbol,price_ticks,quantity,aggressor_side,conditions
+#
+# --- AAPL session: t=1,000,000,000 ns baseline ---
+#
+# Four passive limit orders enter the book
+A,1000000000,1001,AAPL,15000,100,B
+A,1000000100,1002,AAPL,15000,50,B
+A,1000000200,1003,AAPL,15050,75,S
+A,1000000300,1004,AAPL,15100,200,S
+
+# Aggressive sell sweeps 75 shares from order 1001 (full fill)
+E,1000000400,1001,AAPL,75,5001
+
+# Corresponding uncorrelated trade print for the same match
+T,1000000400,5001,AAPL,15000,75,S,0
+
+# Order 1002 is fully cancelled
+C,1000000500,1002,AAPL,50
+
+# Order 1004 is replaced: new reference ID 1005, adjusted price to 150.75, qty 150
+R,1000000600,1004,1005,AAPL,15075,150,S
+
+# Buyer hits 100 shares of new order 1005 at 150.75
+E,1000000700,1005,AAPL,100,5002
+T,1000000700,5002,AAPL,15075,100,B,0
+
+# --- MSFT session: t=1,000,001,000 ns baseline ---
+A,1000001000,2001,MSFT,28000,200,B
+A,1000001100,2002,MSFT,28050,100,S
+E,1000001200,2002,MSFT,100,5003
