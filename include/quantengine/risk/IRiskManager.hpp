@@ -40,9 +40,9 @@
 //   snapshot). The Portfolio object must outlive the risk manager.
 
 #include <cstdint>
+#include <limits>
 #include <string_view>
 
-#include <limits>
 #include "quantengine/core/types.hpp"
 #include "quantengine/execution/IExecutionGateway.hpp"
 #include "quantengine/market/MarketEvent.hpp"
@@ -54,30 +54,40 @@ namespace quantengine::risk {
 // RiskVerdict. Distinct from core::RejectReason (which is engine-internal).
 // ---------------------------------------------------------------------------
 enum class RiskRejectReason : std::uint8_t {
-    None = 0,              // not rejected
-    OrderTooLarge,         // qty > max_order_quantity
-    NotionalTooLarge,      // price * qty > max_order_notional
-    PositionLimitBreached, // adding this order would exceed position cap
-    ExposureLimitBreached, // would exceed gross portfolio notional cap
-    DrawdownHaltActive,    // daily drawdown limit triggered; trading halted
-    DuplicateClientId,     // client_order_id reused within this session
-    InvalidSymbol,         // symbol not in the approved instrument universe
-    GatewayNotConnected,   // risk manager requires an active gateway
+    None = 0,               // not rejected
+    OrderTooLarge,          // qty > max_order_quantity
+    NotionalTooLarge,       // price * qty > max_order_notional
+    PositionLimitBreached,  // adding this order would exceed position cap
+    ExposureLimitBreached,  // would exceed gross portfolio notional cap
+    DrawdownHaltActive,     // daily drawdown limit triggered; trading halted
+    DuplicateClientId,      // client_order_id reused within this session
+    InvalidSymbol,          // symbol not in the approved instrument universe
+    GatewayNotConnected,    // risk manager requires an active gateway
     InternalError
 };
 
 [[nodiscard]] constexpr auto to_string(RiskRejectReason r) noexcept -> std::string_view {
     switch (r) {
-        case RiskRejectReason::None:                  return "NONE";
-        case RiskRejectReason::OrderTooLarge:         return "ORDER_TOO_LARGE";
-        case RiskRejectReason::NotionalTooLarge:      return "NOTIONAL_TOO_LARGE";
-        case RiskRejectReason::PositionLimitBreached: return "POSITION_LIMIT_BREACHED";
-        case RiskRejectReason::ExposureLimitBreached: return "EXPOSURE_LIMIT_BREACHED";
-        case RiskRejectReason::DrawdownHaltActive:    return "DRAWDOWN_HALT_ACTIVE";
-        case RiskRejectReason::DuplicateClientId:     return "DUPLICATE_CLIENT_ID";
-        case RiskRejectReason::InvalidSymbol:         return "INVALID_SYMBOL";
-        case RiskRejectReason::GatewayNotConnected:   return "GATEWAY_NOT_CONNECTED";
-        case RiskRejectReason::InternalError:         return "INTERNAL_ERROR";
+        case RiskRejectReason::None:
+            return "NONE";
+        case RiskRejectReason::OrderTooLarge:
+            return "ORDER_TOO_LARGE";
+        case RiskRejectReason::NotionalTooLarge:
+            return "NOTIONAL_TOO_LARGE";
+        case RiskRejectReason::PositionLimitBreached:
+            return "POSITION_LIMIT_BREACHED";
+        case RiskRejectReason::ExposureLimitBreached:
+            return "EXPOSURE_LIMIT_BREACHED";
+        case RiskRejectReason::DrawdownHaltActive:
+            return "DRAWDOWN_HALT_ACTIVE";
+        case RiskRejectReason::DuplicateClientId:
+            return "DUPLICATE_CLIENT_ID";
+        case RiskRejectReason::InvalidSymbol:
+            return "INVALID_SYMBOL";
+        case RiskRejectReason::GatewayNotConnected:
+            return "GATEWAY_NOT_CONNECTED";
+        case RiskRejectReason::InternalError:
+            return "INTERNAL_ERROR";
     }
     return "UNKNOWN";
 }
@@ -90,9 +100,9 @@ enum class RiskRejectReason : std::uint8_t {
 // The reject_reason gives the strategy a machine-readable cause.
 // ---------------------------------------------------------------------------
 struct RiskVerdict {
-    bool             approved{false};
+    bool approved{false};
     RiskRejectReason reject_reason{RiskRejectReason::InternalError};
-    std::uint8_t     pad[6]{};
+    std::uint8_t pad[6]{};
 
     [[nodiscard]] constexpr auto operator==(const RiskVerdict&) const noexcept -> bool = default;
 
@@ -115,24 +125,22 @@ static_assert(sizeof(RiskVerdict) == 8, "RiskVerdict layout changed — update d
 // Set a limit to its max value to disable it (no_limit pattern).
 // ---------------------------------------------------------------------------
 struct RiskLimits {
-    core::Quantity   max_order_quantity{0};     // 0 = disabled (use no_limit())
-    core::Quantity   max_position_quantity{0};  // per symbol, long + short
-    core::PriceTicks max_order_notional{0};     // price_ticks * qty cap
-    core::PriceTicks max_gross_exposure{0};     // total portfolio notional cap
-    core::PriceTicks daily_drawdown_limit{0};   // halt when session_pnl <= -limit
+    core::Quantity max_order_quantity{0};      // 0 = disabled (use no_limit())
+    core::Quantity max_position_quantity{0};   // per symbol, long + short
+    core::PriceTicks max_order_notional{0};    // price_ticks * qty cap
+    core::PriceTicks max_gross_exposure{0};    // total portfolio notional cap
+    core::PriceTicks daily_drawdown_limit{0};  // halt when session_pnl <= -limit
 
     // Convenience: returns limits with all checks disabled.
     // Intended for testing only — never use in production.
     [[nodiscard]] static constexpr auto no_limit() noexcept -> RiskLimits {
         using L = std::numeric_limits<core::Quantity>;
         using P = std::numeric_limits<core::PriceTicks>;
-        return RiskLimits{
-            .max_order_quantity    = L::max(),
-            .max_position_quantity = L::max(),
-            .max_order_notional    = P::max(),
-            .max_gross_exposure    = P::max(),
-            .daily_drawdown_limit  = P::max()
-        };
+        return RiskLimits{.max_order_quantity = L::max(),
+                          .max_position_quantity = L::max(),
+                          .max_order_notional = P::max(),
+                          .max_gross_exposure = P::max(),
+                          .daily_drawdown_limit = P::max()};
     }
 
     [[nodiscard]] constexpr auto operator==(const RiskLimits&) const noexcept -> bool = default;
@@ -150,12 +158,12 @@ struct RiskLimits {
 // class (M6). The risk manager only needs this subset.
 // ---------------------------------------------------------------------------
 struct PortfolioView {
-    core::PriceTicks session_realized_pnl{0};    // cumulative fills this session
-    core::PriceTicks session_unrealized_pnl{0};  // mark-to-market since last quote
-    core::PriceTicks gross_notional_exposure{0}; // sum of |position| * last_price
-    core::Quantity   net_position{0};            // signed: positive=long, cast as needed
-    std::uint32_t    open_order_count{0};
-    std::uint32_t    pad{0};
+    core::PriceTicks session_realized_pnl{0};     // cumulative fills this session
+    core::PriceTicks session_unrealized_pnl{0};   // mark-to-market since last quote
+    core::PriceTicks gross_notional_exposure{0};  // sum of |position| * last_price
+    core::Quantity net_position{0};               // signed: positive=long, cast as needed
+    std::uint32_t open_order_count{0};
+    std::uint32_t pad{0};
 
     [[nodiscard]] constexpr auto session_pnl() const noexcept -> core::PriceTicks {
         return session_realized_pnl + session_unrealized_pnl;
@@ -244,4 +252,3 @@ public:
 };
 
 }  // namespace quantengine::risk
-

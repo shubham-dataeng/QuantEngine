@@ -62,14 +62,22 @@ enum class FeedStatus : std::uint8_t {
 
 [[nodiscard]] constexpr auto to_string(FeedStatus s) noexcept -> std::string_view {
     switch (s) {
-        case FeedStatus::Ok:                   return "OK";
-        case FeedStatus::AlreadyRunning:       return "ALREADY_RUNNING";
-        case FeedStatus::NotRunning:           return "NOT_RUNNING";
-        case FeedStatus::SymbolNotFound:       return "SYMBOL_NOT_FOUND";
-        case FeedStatus::ConnectionFailed:     return "CONNECTION_FAILED";
-        case FeedStatus::AuthenticationFailed: return "AUTH_FAILED";
-        case FeedStatus::RateLimitExceeded:    return "RATE_LIMITED";
-        case FeedStatus::InternalError:        return "INTERNAL_ERROR";
+        case FeedStatus::Ok:
+            return "OK";
+        case FeedStatus::AlreadyRunning:
+            return "ALREADY_RUNNING";
+        case FeedStatus::NotRunning:
+            return "NOT_RUNNING";
+        case FeedStatus::SymbolNotFound:
+            return "SYMBOL_NOT_FOUND";
+        case FeedStatus::ConnectionFailed:
+            return "CONNECTION_FAILED";
+        case FeedStatus::AuthenticationFailed:
+            return "AUTH_FAILED";
+        case FeedStatus::RateLimitExceeded:
+            return "RATE_LIMITED";
+        case FeedStatus::InternalError:
+            return "INTERNAL_ERROR";
     }
     return "UNKNOWN";
 }
@@ -79,28 +87,28 @@ enum class FeedStatus : std::uint8_t {
 // a subscriber. Unused bits cost nothing — the feed filters before dispatch.
 // ---------------------------------------------------------------------------
 enum class SubscriptionMask : std::uint8_t {
-    None      = 0b0000,
-    Quotes    = 0b0001,
-    Ticks     = 0b0010,
-    Trades    = 0b0100,
+    None = 0b0000,
+    Quotes = 0b0001,
+    Ticks = 0b0010,
+    Trades = 0b0100,
     Snapshots = 0b1000,
-    All       = 0b1111
+    All = 0b1111
 };
 
-[[nodiscard]] constexpr auto operator|(SubscriptionMask a, SubscriptionMask b) noexcept
-    -> SubscriptionMask {
-    return static_cast<SubscriptionMask>(
-        static_cast<std::uint8_t>(a) | static_cast<std::uint8_t>(b));
+[[nodiscard]] constexpr auto operator|(SubscriptionMask a,
+                                       SubscriptionMask b) noexcept -> SubscriptionMask {
+    return static_cast<SubscriptionMask>(static_cast<std::uint8_t>(a) |
+                                         static_cast<std::uint8_t>(b));
 }
 
-[[nodiscard]] constexpr auto operator&(SubscriptionMask a, SubscriptionMask b) noexcept
-    -> SubscriptionMask {
-    return static_cast<SubscriptionMask>(
-        static_cast<std::uint8_t>(a) & static_cast<std::uint8_t>(b));
+[[nodiscard]] constexpr auto operator&(SubscriptionMask a,
+                                       SubscriptionMask b) noexcept -> SubscriptionMask {
+    return static_cast<SubscriptionMask>(static_cast<std::uint8_t>(a) &
+                                         static_cast<std::uint8_t>(b));
 }
 
-[[nodiscard]] constexpr auto has_flag(SubscriptionMask mask, SubscriptionMask flag) noexcept
-    -> bool {
+[[nodiscard]] constexpr auto has_flag(SubscriptionMask mask,
+                                      SubscriptionMask flag) noexcept -> bool {
     return (mask & flag) != SubscriptionMask::None;
 }
 
@@ -122,10 +130,10 @@ enum class SubscriptionMask : std::uint8_t {
 // ---------------------------------------------------------------------------
 template <typename T>
 concept IEventHandler = requires(T& handler, const MarketEvent& ev) {
-    { handler.on_event(ev) }       noexcept -> std::same_as<void>;
-    { handler.on_error("") }       noexcept -> std::same_as<void>;
-    { handler.on_disconnected() }  noexcept -> std::same_as<void>;
-    { handler.on_connected() }     noexcept -> std::same_as<void>;
+    { handler.on_event(ev) } noexcept -> std::same_as<void>;
+    { handler.on_error("") } noexcept -> std::same_as<void>;
+    { handler.on_disconnected() } noexcept -> std::same_as<void>;
+    { handler.on_connected() } noexcept -> std::same_as<void>;
 };
 
 // ---------------------------------------------------------------------------
@@ -188,8 +196,7 @@ public:
     // mask controls which event types are delivered.
     // Returns SymbolNotFound if the feed cannot provide data for this symbol.
     // MUST be called before start(). NOT thread-safe.
-    [[nodiscard]] virtual auto subscribe(EventHandlerBase& handler,
-                                         std::string_view symbol,
+    [[nodiscard]] virtual auto subscribe(EventHandlerBase& handler, std::string_view symbol,
                                          SubscriptionMask mask = SubscriptionMask::All) noexcept
         -> FeedStatus = 0;
 
@@ -197,7 +204,7 @@ public:
     // No-op if the handler was not subscribed.
     // MUST be called before start() or after stop(). NOT thread-safe.
     [[nodiscard]] virtual auto unsubscribe(EventHandlerBase& handler,
-                                            std::string_view symbol) noexcept -> FeedStatus = 0;
+                                           std::string_view symbol) noexcept -> FeedStatus = 0;
 
     // Start delivering events. May block until connected or return immediately
     // and drive events from a background thread — implementation-defined.

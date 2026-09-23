@@ -76,22 +76,25 @@ enum class TimeInForce : std::uint8_t {
 
 [[nodiscard]] constexpr auto to_string(TimeInForce tif) noexcept -> std::string_view {
     switch (tif) {
-        case TimeInForce::Day: return "DAY";
-        case TimeInForce::Ioc: return "IOC";
-        case TimeInForce::Gtc: return "GTC";
+        case TimeInForce::Day:
+            return "DAY";
+        case TimeInForce::Ioc:
+            return "IOC";
+        case TimeInForce::Gtc:
+            return "GTC";
     }
     return "UNKNOWN";
 }
 
 struct OrderRequest {
-    core::OrderId    client_order_id{0};   // assigned by caller; unique per session
-    core::Side       side{core::Side::Buy};
-    core::OrderType  type{core::OrderType::Limit};
-    TimeInForce      time_in_force{TimeInForce::Day};
-    std::uint8_t     pad[4]{};
-    market::SymbolArray symbol{};          // 16 bytes
-    core::PriceTicks price{0};             // 0 = market order (only if type = Market)
-    core::Quantity   quantity{0};
+    core::OrderId client_order_id{0};  // assigned by caller; unique per session
+    core::Side side{core::Side::Buy};
+    core::OrderType type{core::OrderType::Limit};
+    TimeInForce time_in_force{TimeInForce::Day};
+    std::uint8_t pad[4]{};
+    market::SymbolArray symbol{};  // 16 bytes
+    core::PriceTicks price{0};     // 0 = market order (only if type = Market)
+    core::Quantity quantity{0};
 
     [[nodiscard]] constexpr auto operator==(const OrderRequest&) const noexcept -> bool = default;
 };
@@ -108,29 +111,34 @@ static_assert(alignof(OrderRequest) == 8);
 //   process (risk check failed, invalid parameters, not connected, etc.).
 // ---------------------------------------------------------------------------
 enum class GatewayStatus : std::uint8_t {
-    Accepted = 0,   // order entered gateway state machine
-    Rejected,       // pre-submission rejection (see reject_reason)
-    NotConnected,   // gateway is not connected to the venue
-    RateLimited,    // order rate limit exceeded
-    InternalError   // unexpected internal failure
+    Accepted = 0,  // order entered gateway state machine
+    Rejected,      // pre-submission rejection (see reject_reason)
+    NotConnected,  // gateway is not connected to the venue
+    RateLimited,   // order rate limit exceeded
+    InternalError  // unexpected internal failure
 };
 
 [[nodiscard]] constexpr auto to_string(GatewayStatus s) noexcept -> std::string_view {
     switch (s) {
-        case GatewayStatus::Accepted:      return "ACCEPTED";
-        case GatewayStatus::Rejected:      return "REJECTED";
-        case GatewayStatus::NotConnected:  return "NOT_CONNECTED";
-        case GatewayStatus::RateLimited:   return "RATE_LIMITED";
-        case GatewayStatus::InternalError: return "INTERNAL_ERROR";
+        case GatewayStatus::Accepted:
+            return "ACCEPTED";
+        case GatewayStatus::Rejected:
+            return "REJECTED";
+        case GatewayStatus::NotConnected:
+            return "NOT_CONNECTED";
+        case GatewayStatus::RateLimited:
+            return "RATE_LIMITED";
+        case GatewayStatus::InternalError:
+            return "INTERNAL_ERROR";
     }
     return "UNKNOWN";
 }
 
 struct OrderAck {
-    core::OrderId    client_order_id{0};
-    GatewayStatus    status{GatewayStatus::Rejected};
+    core::OrderId client_order_id{0};
+    GatewayStatus status{GatewayStatus::Rejected};
     core::RejectReason reject_reason{core::RejectReason::None};
-    std::uint8_t     pad[6]{};
+    std::uint8_t pad[6]{};
 
     [[nodiscard]] constexpr auto accepted() const noexcept -> bool {
         return status == GatewayStatus::Accepted;
@@ -151,9 +159,9 @@ struct CancelRequest {
 static_assert(sizeof(CancelRequest) == 24);
 
 struct ModifyRequest {
-    core::OrderId    client_order_id{0};
+    core::OrderId client_order_id{0};
     core::PriceTicks new_price{0};
-    core::Quantity   new_quantity{0};
+    core::Quantity new_quantity{0};
     market::SymbolArray symbol{};
 
     [[nodiscard]] constexpr auto operator==(const ModifyRequest&) const noexcept -> bool = default;

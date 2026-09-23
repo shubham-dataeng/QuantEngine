@@ -58,7 +58,9 @@ using SymbolArray = std::array<char, kMaxSymbolLen>;
 [[nodiscard]] constexpr auto symbol_view(const SymbolArray& arr) noexcept -> std::string_view {
     // std::string_view from null-terminated array — zero allocation
     std::size_t len = 0;
-    while (len < kMaxSymbolLen && arr[len] != '\0') { ++len; }
+    while (len < kMaxSymbolLen && arr[len] != '\0') {
+        ++len;
+    }
     return {arr.data(), len};
 }
 
@@ -84,13 +86,13 @@ using NanoTs = std::int64_t;
 // Equivalent to a "time & sales" entry. 40 bytes.
 // ---------------------------------------------------------------------------
 struct Tick {
-    NanoTs          exchange_ts{0};    // exchange-reported trade timestamp (ns)
-    NanoTs          recv_ts{0};        // local receive timestamp (ns); set by feed adapter
-    SymbolArray     symbol{};          // 16 bytes
-    core::PriceTicks price{0};         // fixed-point price in ticks
-    core::Quantity   quantity{0};      // shares / contracts
-    core::Side       aggressor{core::Side::Buy}; // which side was the taker
-    std::uint8_t     pad[7]{};         // explicit padding to 8-byte boundary
+    NanoTs exchange_ts{0};                  // exchange-reported trade timestamp (ns)
+    NanoTs recv_ts{0};                      // local receive timestamp (ns); set by feed adapter
+    SymbolArray symbol{};                   // 16 bytes
+    core::PriceTicks price{0};              // fixed-point price in ticks
+    core::Quantity quantity{0};             // shares / contracts
+    core::Side aggressor{core::Side::Buy};  // which side was the taker
+    std::uint8_t pad[7]{};                  // explicit padding to 8-byte boundary
 
     [[nodiscard]] constexpr auto operator==(const Tick&) const noexcept -> bool = default;
 };
@@ -102,13 +104,13 @@ static_assert(alignof(Tick) == 8);
 // Equivalent to NBBO or L1 update. 64 bytes.
 // ---------------------------------------------------------------------------
 struct Quote {
-    NanoTs           exchange_ts{0};
-    NanoTs           recv_ts{0};
-    SymbolArray      symbol{};
+    NanoTs exchange_ts{0};
+    NanoTs recv_ts{0};
+    SymbolArray symbol{};
     core::PriceTicks bid_price{0};
     core::PriceTicks ask_price{0};
-    core::Quantity   bid_size{0};
-    core::Quantity   ask_size{0};
+    core::Quantity bid_size{0};
+    core::Quantity ask_size{0};
 
     [[nodiscard]] constexpr auto operator==(const Quote&) const noexcept -> bool = default;
 
@@ -130,14 +132,14 @@ static_assert(alignof(Quote) == 8);
 // and strategy signal generation. 56 bytes.
 // ---------------------------------------------------------------------------
 struct MarketTrade {
-    NanoTs           exchange_ts{0};
-    NanoTs           recv_ts{0};
-    SymbolArray      symbol{};
+    NanoTs exchange_ts{0};
+    NanoTs recv_ts{0};
+    SymbolArray symbol{};
     core::PriceTicks price{0};
-    core::Quantity   quantity{0};
-    core::Side       aggressor{core::Side::Buy};
-    std::uint8_t     conditions{0};  // exchange trade condition flags (bitmask)
-    std::uint8_t     pad[6]{};
+    core::Quantity quantity{0};
+    core::Side aggressor{core::Side::Buy};
+    std::uint8_t conditions{0};  // exchange trade condition flags (bitmask)
+    std::uint8_t pad[6]{};
 
     [[nodiscard]] constexpr auto operator==(const MarketTrade&) const noexcept -> bool = default;
 };
@@ -150,9 +152,9 @@ static_assert(alignof(MarketTrade) == 8);
 // ---------------------------------------------------------------------------
 struct PriceLevel {
     core::PriceTicks price{0};
-    core::Quantity   size{0};
-    std::uint32_t    order_count{0};
-    std::uint32_t    pad{0};
+    core::Quantity size{0};
+    std::uint32_t order_count{0};
+    std::uint32_t pad{0};
 
     [[nodiscard]] constexpr auto operator==(const PriceLevel&) const noexcept -> bool = default;
 };
@@ -170,17 +172,17 @@ static_assert(sizeof(PriceLevel) == 24);
 inline constexpr std::size_t kMaxDepth = 10;
 
 struct OrderBookSnapshot {
-    NanoTs       exchange_ts{0};
-    NanoTs       recv_ts{0};
-    SymbolArray  symbol{};
-    std::uint8_t bid_count{0};   // number of valid entries in bids[]
-    std::uint8_t ask_count{0};   // number of valid entries in asks[]
+    NanoTs exchange_ts{0};
+    NanoTs recv_ts{0};
+    SymbolArray symbol{};
+    std::uint8_t bid_count{0};  // number of valid entries in bids[]
+    std::uint8_t ask_count{0};  // number of valid entries in asks[]
     std::uint8_t pad[6]{};
     std::array<PriceLevel, kMaxDepth> bids{};  // descending by price
     std::array<PriceLevel, kMaxDepth> asks{};  // ascending by price
 
-    [[nodiscard]] constexpr auto operator==(const OrderBookSnapshot&) const noexcept
-        -> bool = default;
+    [[nodiscard]] constexpr auto operator==(const OrderBookSnapshot&) const noexcept -> bool =
+                                                                                            default;
 
     [[nodiscard]] constexpr auto best_bid() const noexcept -> const PriceLevel* {
         return (bid_count > 0) ? &bids[0] : nullptr;
@@ -191,7 +193,9 @@ struct OrderBookSnapshot {
     }
 
     [[nodiscard]] constexpr auto mid_price() const noexcept -> core::PriceTicks {
-        if (bid_count == 0 || ask_count == 0) { return 0; }
+        if (bid_count == 0 || ask_count == 0) {
+            return 0;
+        }
         return (bids[0].price + asks[0].price) / 2;
     }
 };
@@ -212,9 +216,9 @@ using MarketEvent = std::variant<Quote, Tick, MarketTrade, OrderBookSnapshot>;
 
 // Convenience type-tag helpers — zero cost, constexpr.
 enum class MarketEventKind : std::uint8_t {
-    Quote             = 0,  // must match variant index order
-    Tick              = 1,
-    MarketTrade       = 2,
+    Quote = 0,  // must match variant index order
+    Tick = 1,
+    MarketTrade = 2,
     OrderBookSnapshot = 3
 };
 
@@ -224,10 +228,14 @@ enum class MarketEventKind : std::uint8_t {
 
 [[nodiscard]] constexpr auto to_string(MarketEventKind kind) noexcept -> std::string_view {
     switch (kind) {
-        case MarketEventKind::Quote:             return "QUOTE";
-        case MarketEventKind::Tick:              return "TICK";
-        case MarketEventKind::MarketTrade:       return "TRADE";
-        case MarketEventKind::OrderBookSnapshot: return "SNAPSHOT";
+        case MarketEventKind::Quote:
+            return "QUOTE";
+        case MarketEventKind::Tick:
+            return "TICK";
+        case MarketEventKind::MarketTrade:
+            return "TRADE";
+        case MarketEventKind::OrderBookSnapshot:
+            return "SNAPSHOT";
     }
     return "UNKNOWN";
 }
@@ -236,15 +244,12 @@ enum class MarketEventKind : std::uint8_t {
 // Uses std::visit internally but has a branch-free result path.
 [[nodiscard]] inline auto event_symbol(const MarketEvent& ev) noexcept -> std::string_view {
     return std::visit(
-        [](const auto& e) noexcept -> std::string_view { return symbol_view(e.symbol); },
-        ev);
+        [](const auto& e) noexcept -> std::string_view { return symbol_view(e.symbol); }, ev);
 }
 
 // Extract the receive timestamp from any MarketEvent.
 [[nodiscard]] inline auto event_recv_ts(const MarketEvent& ev) noexcept -> NanoTs {
-    return std::visit(
-        [](const auto& e) noexcept -> NanoTs { return e.recv_ts; },
-        ev);
+    return std::visit([](const auto& e) noexcept -> NanoTs { return e.recv_ts; }, ev);
 }
 
 }  // namespace quantengine::market

@@ -285,30 +285,30 @@ private:
         if (side == core::Side::Buy) {
             const auto best_ask = book_.best_ask_price();
             if (best_ask.has_value() && cmd.new_price >= *best_ask) {
-                return core::ExecutionReport{.order_id = cmd.order_id,
-                                             .status = core::OrderStatus::Rejected,
-                                             .reject_reason =
-                                                 core::RejectReason::ModifyCrossesSpread,
-                                             .remaining_quantity = old_remaining,
-                                             .filled_quantity = old_filled,
-                                             .price = old_price,
-                                             .side = side,
-                                             .sequence_number = seq,
-                                             .trades = {}};
+                return core::ExecutionReport{
+                    .order_id = cmd.order_id,
+                    .status = core::OrderStatus::Rejected,
+                    .reject_reason = core::RejectReason::ModifyCrossesSpread,
+                    .remaining_quantity = old_remaining,
+                    .filled_quantity = old_filled,
+                    .price = old_price,
+                    .side = side,
+                    .sequence_number = seq,
+                    .trades = {}};
             }
         } else {
             const auto best_bid = book_.best_bid_price();
             if (best_bid.has_value() && cmd.new_price <= *best_bid) {
-                return core::ExecutionReport{.order_id = cmd.order_id,
-                                             .status = core::OrderStatus::Rejected,
-                                             .reject_reason =
-                                                 core::RejectReason::ModifyCrossesSpread,
-                                             .remaining_quantity = old_remaining,
-                                             .filled_quantity = old_filled,
-                                             .price = old_price,
-                                             .side = side,
-                                             .sequence_number = seq,
-                                             .trades = {}};
+                return core::ExecutionReport{
+                    .order_id = cmd.order_id,
+                    .status = core::OrderStatus::Rejected,
+                    .reject_reason = core::RejectReason::ModifyCrossesSpread,
+                    .remaining_quantity = old_remaining,
+                    .filled_quantity = old_filled,
+                    .price = old_price,
+                    .side = side,
+                    .sequence_number = seq,
+                    .trades = {}};
             }
         }
 
